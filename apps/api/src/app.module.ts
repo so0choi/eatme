@@ -4,7 +4,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { AppController } from './app.controller';
 import { UsersModule } from './modules/user/users.module';
 import { AuthModule } from '@common/auth/auth.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { GqlAuthGuard } from '@common/auth/guards/gql.guard';
 import { ConfigModule } from '@nestjs/config';
 import { RequestLoggingInterceptor } from '@common/interceptors/request-logging.interceptor';
@@ -48,6 +49,10 @@ import { ReviewModule } from '@modules/review/review.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: RequestLoggingInterceptor,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: ZodValidationPipe,
     },
   ],
 })

@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+  "dependencies": {
     "@apollo/client": "^4.1.6",
     "@apollo/client-integration-nextjs": "^0.14.4",
-    "@graphql-typed-document-node/core": "^3.2.0",
+    "@bangtalchul/schemas": "workspace:^",
     "@headlessui/react": "^1.6.1",
     "@heroicons/react": "^1.0.6",
     "@tailwindcss/postcss": "^4.1.18",
