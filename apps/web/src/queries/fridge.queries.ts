@@ -19,6 +19,16 @@ export const GET_ALL_INGREDIENTS = gql(`
   }
 `);
 
+export const MONTHLY_INGREDIENT_WASTE = gql(`
+  query MonthlyIngredientWaste($months: Int) {
+    monthlyIngredientWaste(months: $months) {
+      month
+      totalLoss
+      discardedCount
+    }
+  }
+`);
+
 export const GET_INGREDIENT = gql(`
   query Ingredient($id: Int!) {
     ingredient(id: $id) {
@@ -73,5 +83,17 @@ export const UPDATE_INGREDIENT = gql(`
 export const DELETE_INGREDIENT = gql(`
   mutation DeleteIngredient($id: Int!) {
     deleteIngredient(id: $id)
+  }
+`);
+
+export const DISCARD_INGREDIENT = gql(`
+  mutation DiscardIngredient($id: Int!) {
+    discardIngredient(id: $id) {
+      id
+      ingredientId
+      name
+      lossAmount
+      discardedAt
+    }
   }
 `);

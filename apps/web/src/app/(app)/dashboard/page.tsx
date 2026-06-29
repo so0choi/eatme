@@ -1,17 +1,43 @@
 import { Package, AlertTriangle, PiggyBank } from 'lucide-react';
 import dayjs from 'dayjs';
 import { getClient } from '@/app/ApolloClient';
-import { GET_ALL_INGREDIENTS } from '@/queries/fridge.queries';
+import { GET_ALL_INGREDIENTS, MONTHLY_INGREDIENT_WASTE } from '@/queries/fridge.queries';
 import { Ingredient, IngredientStatus } from 'gql/graphql';
 import IngredientsSection from '@/components/dashboard/IngredientsSection';
 import { getIngredientEmoji } from '@/components/fridge/ingredient-icons';
 
-export default async function DashboardPage() {
-  const { data } = await getClient().query<{ getAllIngredients: Ingredient[] }>({
-    query: GET_ALL_INGREDIENTS,
-  });
+type MonthlyIngredientWaste = {
+  month: string;
+  totalLoss: number;
+  discardedCount: number;
+};
 
-  const ingredients = data?.getAllIngredients ?? [];
+function formatWon(value: number) {
+  return `₩${value.toLocaleString('ko-KR')}`;
+}
+
+function formatMonth(month: string) {
+  const [year, monthNumber] = month.split('-');
+  return `${year}.${monthNumber}`;
+}
+
+export default async function DashboardPage() {
+  const [{ data }, { data: wasteData }] = await Promise.all([
+    getClient().query<{ getAllIngredients: Ingredient[] }>({
+      query: GET_ALL_INGREDIENTS,
+    }),
+    getClient().query<{ monthlyIngredientWaste: MonthlyIngredientWaste[] }>({
+      query: MONTHLY_INGREDIENT_WASTE,
+      variables: { months: 6 },
+    }),
+  ]);
+
+  const ingredients = (data?.getAllIngredients ?? []).filter(
+    (i) => i.status !== IngredientStatus.Used && i.status !== IngredientStatus.Discarded,
+  );
+  const monthlyWaste = wasteData?.monthlyIngredientWaste ?? [];
+  const currentMonthWaste = monthlyWaste.at(-1);
+  const maxMonthlyLoss = Math.max(...monthlyWaste.map((item) => item.totalLoss), 0);
   const expiringItems = ingredients.filter((i) => i.status === IngredientStatus.ExpiringSoon);
   const totalValue = ingredients.reduce((sum, i) => sum + (i.price ?? 0), 0);
 
@@ -34,10 +60,18 @@ export default async function DashboardPage() {
     },
     {
       label: '총 재료 가치',
-      value: `₩${totalValue.toLocaleString('ko-KR')}`,
+      value: formatWon(totalValue),
       color: 'text-org',
       bgIcon: 'bg-secondary-fixed/30',
       iconColor: 'text-org',
+      icon: PiggyBank,
+    },
+    {
+      label: '이번 달 손실',
+      value: formatWon(currentMonthWaste?.totalLoss ?? 0),
+      color: 'text-error',
+      bgIcon: 'bg-error-container/40',
+      iconColor: 'text-error',
       icon: PiggyBank,
     },
   ];
@@ -56,7 +90,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* Quick Stats */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -76,6 +110,45 @@ export default async function DashboardPage() {
             </div>
           );
         })}
+      </section>
+
+      <section className="rounded-3xl bg-surface-container-lowest p-6 shadow-ambient">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-1">
+              폐기 손실
+            </p>
+            <h2 className="font-display text-xl font-bold text-on-surface">월별 금전 손해</h2>
+          </div>
+          <p className="text-sm font-semibold text-error">
+            최근 6개월 {formatWon(monthlyWaste.reduce((sum, item) => sum + item.totalLoss, 0))}
+          </p>
+        </div>
+        <div className="space-y-3">
+          {monthlyWaste.map((item) => {
+            const ratio =
+              maxMonthlyLoss > 0 ? Math.max(8, (item.totalLoss / maxMonthlyLoss) * 100) : 0;
+            return (
+              <div key={item.month} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3">
+                <span className="text-xs font-bold text-on-surface-variant">
+                  {formatMonth(item.month)}
+                </span>
+                <div className="h-2.5 overflow-hidden rounded-full bg-surface-container">
+                  <div
+                    className="h-full rounded-full bg-error"
+                    style={{ width: `${ratio}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-on-surface tabular-nums">
+                  {formatWon(item.totalLoss)}
+                  <span className="ml-1 text-xs font-medium text-on-surface-variant">
+                    {item.discardedCount}건
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       {/* Main Two-Column Grid */}

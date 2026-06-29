@@ -27,6 +27,7 @@ model User {
   preferenceTags String[]
   phone   String?
   ingredients Ingredient[]
+  ingredientDisposals IngredientDisposal[]
   recipes Recipe[]
 }
 
@@ -66,6 +67,32 @@ model Ingredient {
   category   IngredientCategory?
   storage    StorageType
   status     IngredientStatus    @default(FRESH)
+
+  disposals  IngredientDisposal[]
+}
+
+model IngredientDisposal {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  ingredientId Int?
+
+  name       String
+  price      Int?
+  lossAmount Int      @default(0)
+  quantity   Float?
+  unit       IngredientUnit?
+  category   IngredientCategory?
+  storage    StorageType?
+  expireAt   DateTime?
+
+  discardedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId, discardedAt])
+  @@index([ingredientId])
 }
 
 model Recipe {

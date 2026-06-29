@@ -12,7 +12,7 @@ export default async function FridgePage() {
 
   // 사용 완료(USED) 처리한 식재료는 냉장고 UI에서 숨긴다.
   const ingredients = (data?.getAllIngredients ?? []).filter(
-    (i) => i.status !== IngredientStatus.Used,
+    (i) => i.status !== IngredientStatus.Used && i.status !== IngredientStatus.Discarded,
   );
   const imminentCount = ingredients.filter(
     (i) => i.status === IngredientStatus.ExpiringSoon,

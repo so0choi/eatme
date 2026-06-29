@@ -37,7 +37,7 @@ import {
   STATUS_OPTIONS,
   CATEGORY_OPTIONS,
 } from './filter-options';
-import { deleteIngredient } from './actions/delete-ingredient';
+import { discardIngredient } from './actions/discard-ingredient';
 import { markIngredientUsed } from './actions/mark-ingredient-used';
 import { getIngredientEmoji } from './ingredient-icons';
 import {
@@ -237,18 +237,18 @@ export default function FridgeTable({ ingredients }: { ingredients: Ingredient[]
     });
   };
 
-  // 삭제 — AlertDialog로 확인 후 실행. 되돌릴 수 없음. 성공 시 서버 액션이 /fridge를 revalidate한다.
-  const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null);
-  const [isDeleting, startDeleteTransition] = useTransition();
-  const confirmDelete = () => {
-    if (!pendingDelete) return;
-    const { id } = pendingDelete;
-    startDeleteTransition(async () => {
-      const result = await deleteIngredient(id);
+  // 폐기 — 손실 이력을 남기고 status를 DISCARDED로 변경한다.
+  const [pendingDiscard, setPendingDiscard] = useState<{ id: number; name: string } | null>(null);
+  const [isDiscarding, startDiscardTransition] = useTransition();
+  const confirmDiscard = () => {
+    if (!pendingDiscard) return;
+    const { id } = pendingDiscard;
+    startDiscardTransition(async () => {
+      const result = await discardIngredient(id);
       if (result.success) {
-        setPendingDelete(null);
+        setPendingDiscard(null);
       } else {
-        window.alert(result.error ?? '삭제에 실패했습니다.');
+        window.alert(result.error ?? '폐기에 실패했습니다.');
       }
     });
   };
@@ -454,9 +454,9 @@ export default function FridgeTable({ ingredients }: { ingredients: Ingredient[]
                           </button>
                           <button
                             type="button"
-                            onClick={() => setPendingDelete({ id: item.id, name: item.name })}
-                            aria-label="재료 삭제"
-                            title="삭제"
+                            onClick={() => setPendingDiscard({ id: item.id, name: item.name })}
+                            aria-label="재료 폐기"
+                            title="폐기"
                             className="p-2 hover:bg-error/10 rounded-lg text-on-surface-variant hover:text-error transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -504,37 +504,37 @@ export default function FridgeTable({ ingredients }: { ingredients: Ingredient[]
         )}
       </div>
 
-      {/* 삭제 확인 다이얼로그 */}
+      {/* 폐기 확인 다이얼로그 */}
       <AlertDialog
-        open={pendingDelete !== null}
+        open={pendingDiscard !== null}
         onOpenChange={(open) => {
-          if (!open && !isDeleting) setPendingDelete(null);
+          if (!open && !isDiscarding) setPendingDiscard(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>식재료를 삭제할까요?</AlertDialogTitle>
+            <AlertDialogTitle>식재료를 폐기할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              &lsquo;{pendingDelete?.name}&rsquo;을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+              &lsquo;{pendingDiscard?.name}&rsquo;을(를) 폐기하고 금전 손실 이력을 남깁니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDiscarding}>취소</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                confirmDelete();
+                confirmDiscard();
               }}
-              disabled={isDeleting}
+              disabled={isDiscarding}
               className="bg-error text-on-error"
             >
-              {isDeleting ? (
+              {isDiscarding ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  삭제 중...
+                  폐기 중...
                 </span>
               ) : (
-                '삭제'
+                '폐기'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

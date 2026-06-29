@@ -5,6 +5,8 @@ import { CreateIngredientInput } from './dtos/create-ingredient.dto';
 import { UpdateIngredientInput } from './dtos/update-ingredient.dto';
 import { Ingredient } from './models/ingredient.model';
 import { IngredientService } from './ingredient.service';
+import { IngredientDisposal } from './models/ingredient-disposal.model';
+import { MonthlyIngredientWaste } from './models/monthly-ingredient-waste.model';
 
 @Resolver(() => Ingredient)
 export class IngredientResolver {
@@ -23,6 +25,14 @@ export class IngredientResolver {
     return this.ingredientService.findOne(id, user.id);
   }
 
+  @Query(() => [MonthlyIngredientWaste], { name: 'monthlyIngredientWaste' })
+  async monthlyIngredientWaste(
+    @CurrentUser() user: User,
+    @Args('months', { type: () => Int, nullable: true, defaultValue: 6 }) months: number,
+  ): Promise<MonthlyIngredientWaste[]> {
+    return this.ingredientService.findMonthlyWasteByUser(user.id, months);
+  }
+
   @Mutation(() => Ingredient, { name: 'createIngredient' })
   async create(
     @Args('input') input: CreateIngredientInput,
@@ -37,6 +47,14 @@ export class IngredientResolver {
     @CurrentUser() user: User,
   ): Promise<Ingredient> {
     return this.ingredientService.update(user.id, input);
+  }
+
+  @Mutation(() => IngredientDisposal, { name: 'discardIngredient' })
+  async discard(
+    @Args('id', { type: () => Int }) id: number,
+    @CurrentUser() user: User,
+  ): Promise<IngredientDisposal> {
+    return this.ingredientService.discard(user.id, id);
   }
 
   @Mutation(() => Boolean, { name: 'deleteIngredient' })
