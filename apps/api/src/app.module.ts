@@ -1,6 +1,7 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { UsersModule } from './modules/user/users.module';
 import { AuthModule } from '@common/auth/auth.module';
@@ -14,10 +15,14 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 
 import { WinstonModule } from '@common/logger/winston.module';
 import { ReviewModule } from '@modules/review/review.module';
+import { IngredientModule } from '@modules/ingredient/ingredient.module';
+import { RecipeModule } from '@modules/recipe/recipe.module';
+import { YoutubeModule } from '@modules/youtube/youtube.module';
 
 @Module({
   imports: [
     PrismaModule,
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       envFilePath: '.dev.env',
     }),
@@ -39,6 +44,9 @@ import { ReviewModule } from '@modules/review/review.module';
     AuthModule,
     WinstonModule,
     ReviewModule,
+    IngredientModule,
+    RecipeModule,
+    YoutubeModule,
   ],
   controllers: [AppController],
   providers: [

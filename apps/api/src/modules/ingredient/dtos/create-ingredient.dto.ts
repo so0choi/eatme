@@ -1,21 +1,12 @@
-import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
-
-import { BaseModel } from '@common/models/base.model';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import {
   IngredientCategory,
-  IngredientStatus,
   IngredientUnit,
   StorageType,
-} from '../enums/ingredient.enum';
+} from '@prisma/enums';
 
-@ObjectType()
-export class Ingredient extends BaseModel {
-  @Field(() => Int)
-  id: number;
-
-  @Field(() => Int)
-  userId: number;
-
+@InputType()
+export class CreateIngredientInput {
   @Field()
   name: string;
 
@@ -37,6 +28,6 @@ export class Ingredient extends BaseModel {
   @Field(() => StorageType)
   storage: StorageType;
 
-  @Field(() => IngredientStatus)
-  status: IngredientStatus;
+  @Field({ nullable: true })
+  imageUrl?: string;
 }

@@ -25,8 +25,9 @@ model User {
   reviews Review[]
   sessions Session[]
   preferenceTags String[]
-  phone   String? 
+  phone   String?
   ingredients Ingredient[]
+  recipes Recipe[]
 }
 
 model Review {
@@ -60,10 +61,66 @@ model Ingredient {
   quantity   Float?
   unit       IngredientUnit?
   expireAt   DateTime?
+  imageUrl   String?
 
   category   IngredientCategory?
   storage    StorageType
   status     IngredientStatus    @default(FRESH)
+}
+
+model Recipe {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
+
+  title       String
+  description String?
+  imageUrl    String?
+  servings    Int?
+  cookTime    Int?
+  difficulty  RecipeDifficulty?
+
+  steps       String[]
+
+  author      User?    @relation(fields: [authorId], references: [id])
+  authorId    Int?
+
+  ingredients RecipeIngredient[]
+
+  @@index([authorId])
+}
+
+// 표준 재료 카탈로그 — '양파'는 여기 1행만 존재하고 여러 RecipeIngredient가 이를 참조한다.
+model IngredientItem {
+  id        Int                 @id @default(autoincrement())
+  name      String              @unique
+  category  IngredientCategory?
+  createdAt DateTime            @default(now())
+
+  recipeIngredients RecipeIngredient[]
+}
+
+// 레시피별 재료 사용량(junction) — '이 레시피에서 양파를 얼마나 쓰는지'
+model RecipeIngredient {
+  id       Int             @id @default(autoincrement())
+  recipe   Recipe          @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId Int
+
+  item             IngredientItem @relation(fields: [ingredientItemId], references: [id])
+  ingredientItemId Int
+
+  quantity Float?
+  unit     IngredientUnit?
+  optional Boolean         @default(false)
+
+  @@index([recipeId])
+  @@index([ingredientItemId])
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
 }
 
 enum IngredientCategory {
