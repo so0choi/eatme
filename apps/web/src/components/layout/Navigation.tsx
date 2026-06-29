@@ -20,6 +20,7 @@ const appNav = [
   { name: '대시보드', href: '/dashboard' },
   { name: '냉장고', href: '/fridge' },
   { name: '레시피', href: '/recipes' },
+  { name: '인사이트', href: '/insights/waste' },
   { name: '커뮤니티', href: '/community' },
 ];
 
