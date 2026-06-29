@@ -1,6 +1,7 @@
 # Next.js build
 /.next
 /out
+/tsconfig.tsbuildinfo
 
 # Test
 /coverage

@@ -21,3 +21,8 @@ logs
 mcp.json
 .agents/
 .claude/
+
+# Build artifacts
+dist/
+packages/*/dist/
+*.tsbuildinfo

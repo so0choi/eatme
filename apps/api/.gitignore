@@ -9,3 +9,9 @@
 
 # Misc
 ormconfig.json
+
+# Local env files
+*.env
+
+# Runtime logs
+/log
