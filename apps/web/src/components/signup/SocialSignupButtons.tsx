@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 const SocialSignupButtons = () => {
   return (
@@ -9,8 +9,12 @@ const SocialSignupButtons = () => {
         <div className="h-px flex-1 bg-slate-200" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Button type="button" variant="outline">카카오로 시작하기</Button>
-        <Button type="button" variant="outline">Apple로 시작하기</Button>
+        <Button type="button" variant="outline">
+          카카오로 시작하기
+        </Button>
+        <Button type="button" variant="outline">
+          Apple로 시작하기
+        </Button>
       </div>
     </div>
   );

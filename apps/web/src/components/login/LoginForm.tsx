@@ -4,7 +4,7 @@ import Form from 'next/form';
 import Link from 'next/link';
 import { login } from './actions/login';
 import { useActionState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 const LoginForm = () => {
   const [state, action, pending] = useActionState(login, undefined);
@@ -67,7 +67,10 @@ const LoginForm = () => {
         {state?.error && (
           <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{state.error}</p>
         )}
-        <Button type="submit" className={ "w-full py-4"+(pending ? 'cursor-progress opacity-80' : '')}>
+        <Button
+          type="submit"
+          className={'w-full py-4' + (pending ? 'cursor-progress opacity-80' : '')}
+        >
           {pending ? '로그인 중...' : '로그인'}
         </Button>
       </Form>
@@ -78,8 +81,12 @@ const LoginForm = () => {
           <div className="h-px flex-1 bg-slate-200" />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Button type="button" variant="outline">카카오로 시작하기</Button>
-          <Button type="button" variant="outline">Apple로 시작하기</Button>
+          <Button type="button" variant="outline">
+            카카오로 시작하기
+          </Button>
+          <Button type="button" variant="outline">
+            Apple로 시작하기
+          </Button>
         </div>
       </div>
     </section>

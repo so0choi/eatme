@@ -10,10 +10,10 @@
    덮어쓰므로, :root 에서 shadcn 변수를 직접 우리 값으로 매핑한다.
 ───────────────────────────────────────────────────────────── */
 @theme {
-  /* Primary — "Freshness" (#006e1c dark green) */
+  /* Primary — "Freshness" (brighter, more vibrant green) */
   --color-on-primary:               #ffffff;
-  --color-primary-container:        #4caf50;
-  --color-on-primary-container:     #002204;
+  --color-primary-container:        #86efac;
+  --color-on-primary-container:     #052e16;
 
   /* Secondary — "Organization" (blue, shadcn secondary와 별도 토큰) */
   --color-org:                      #0061a4;
@@ -24,6 +24,12 @@
   --color-tertiary:                 #b02f00;
   --color-tertiary-container:       #ff6e43;
   --color-on-tertiary:              #ffffff;
+
+  /* Error — "Expired / Critical" (만료·삭제 등 위험 상태) */
+  --color-error:                    #ba1a1a;
+  --color-error-container:          #ffdad6;
+  --color-on-error:                 #ffffff;
+  --color-on-error-container:       #410002;
 
   /* Surface hierarchy */
   --color-surface:                  #f8faf9;
@@ -53,7 +59,7 @@
   --popover-foreground:          #191c1c;
 
   /* Primary — Freshness green */
-  --primary:                     #006e1c;
+  --primary:                     #16a34a;
   --primary-foreground:          #ffffff;
 
   /* Secondary — neutral (shadcn 버튼 호환용 중립 톤) */
@@ -74,11 +80,11 @@
   /* Border / Input / Ring */
   --border:                      #bec9c8;   /* outline-variant */
   --input:                       #eceeee;   /* surface-container */
-  --ring:                        #006e1c;   /* primary for focus rings */
+  --ring:                        #16a34a;   /* primary for focus rings */
 
   /* Charts — design palette 순서로 매핑 */
-  --chart-1:                     #006e1c;
-  --chart-2:                     #4caf50;
+  --chart-1:                     #16a34a;
+  --chart-2:                     #86efac;
   --chart-3:                     #0061a4;
   --chart-4:                     #b02f00;
   --chart-5:                     #ba1a1a;
@@ -89,12 +95,12 @@
   /* Sidebar */
   --sidebar:                     #f8faf9;   /* surface */
   --sidebar-foreground:          #3f4948;   /* on-surface-variant */
-  --sidebar-primary:             #006e1c;   /* primary */
+  --sidebar-primary:             #16a34a;   /* primary */
   --sidebar-primary-foreground:  #ffffff;   /* on-primary */
   --sidebar-accent:              #f2f4f3;   /* surface-container-low */
   --sidebar-accent-foreground:   #191c1c;   /* on-surface */
   --sidebar-border:              transparent;
-  --sidebar-ring:                #006e1c;
+  --sidebar-ring:                #16a34a;
 }
 
 /* dark 모드는 현재 사용하지 않으므로 light 값 유지 */
@@ -105,7 +111,7 @@
   --card-foreground:             #191c1c;
   --popover:                     #ffffff;
   --popover-foreground:          #191c1c;
-  --primary:                     #006e1c;
+  --primary:                     #16a34a;
   --primary-foreground:          #ffffff;
   --secondary:                   #f2f4f3;
   --secondary-foreground:        #191c1c;
@@ -124,7 +130,7 @@
   --sidebar-accent:              #eceeee;
   --sidebar-accent-foreground:   #191c1c;
   --sidebar-border:              transparent;
-  --sidebar-ring:                #006e1c;
+  --sidebar-ring:                #16a34a;
 }
 
 /* ─── shadcn @theme inline (Tailwind ↔ CSS 변수 브릿지) ────── */

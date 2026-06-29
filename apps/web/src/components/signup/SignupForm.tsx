@@ -9,7 +9,7 @@ import Form from 'next/form';
 import { signUp } from '@/components/signup/actions/signup';
 import { PREFERENCE_TAGS } from '@/constants/preferences';
 import { useActionState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 const SignupForm = () => {
   const [state, formAction] = useActionState(signUp, undefined);
@@ -21,7 +21,10 @@ const SignupForm = () => {
       <h2 className="text-2xl font-semibold text-slate-900">회원가입</h2>
       <p className="mt-2 text-sm text-slate-500">
         이미 계정이 있다면{' '}
-        <Link href="/login" className="font-semibold text-emerald-600 underline-offset-4 hover:underline">
+        <Link
+          href="/login"
+          className="font-semibold text-emerald-600 underline-offset-4 hover:underline"
+        >
           로그인
         </Link>
       </p>
