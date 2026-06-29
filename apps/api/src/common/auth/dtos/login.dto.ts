@@ -1,11 +1,4 @@
-import {
-  Field,
-  InputType,
-  OmitType,
-  PickType,
-  ObjectType,
-  Int,
-} from '@nestjs/graphql';
+import { Field, InputType, Int, ObjectType, PickType } from '@nestjs/graphql';
 import { CreateUserInput } from '../../../modules/user/dtos/create.dto';
 
 @InputType()
@@ -14,19 +7,17 @@ export class LoginDto extends PickType(CreateUserInput, ['email', 'password']) {
   autologin?: boolean;
 }
 
-import { CoreResponse } from '@common/dtos/core-response.dto';
-
 @ObjectType()
-export class LoginOutput extends CoreResponse {
-  @Field({ nullable: true })
-  accessToken?: string;
+export class LoginToken {
+  @Field()
+  accessToken: string;
 
-  @Field({ nullable: true })
-  refreshToken?: string;
+  @Field()
+  refreshToken: string;
 
-  @Field(() => Int, { nullable: true })
-  expiresIn?: number;
+  @Field(() => Int)
+  expiresIn: number;
 
-  @Field(() => Int, { nullable: true })
-  refreshExpiresIn?: number;
+  @Field(() => Int)
+  refreshExpiresIn: number;
 }

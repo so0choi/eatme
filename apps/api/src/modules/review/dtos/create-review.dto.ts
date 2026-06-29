@@ -1,8 +1,7 @@
-import { Field, InputType, ObjectType, OmitType } from '@nestjs/graphql';
+import { InputType, OmitType } from '@nestjs/graphql';
 
-import { CoreResponse } from '@common/dtos/core-response.dto';
 import { Review } from '../models/review.model';
-import { createReviewSchema } from '@bangtalchul/schemas';
+import { createReviewSchema } from '@eatme/schemas';
 
 @InputType()
 export class CreateReviewInput extends OmitType(
@@ -13,10 +12,4 @@ export class CreateReviewInput extends OmitType(
   static schema = createReviewSchema;
 
   authorId: number;
-}
-
-@ObjectType()
-export class CreateReviewOutput extends CoreResponse {
-  @Field()
-  review?: Review;
 }

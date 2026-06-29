@@ -4,39 +4,27 @@ import { Public } from '@common/decorators/setMetadata';
 import { UsersService } from './users.service';
 import { UserModel } from '@prisma/models';
 import { User } from './models/user.model';
-import { CreateUserInput, CreateUserOutput } from './dtos/create.dto';
+import { CreateUserInput } from './dtos/create.dto';
 import { UpdateDto } from './dtos/update.dto';
-import { log } from 'node:console';
 
 @Resolver(() => User)
 export class UsersResolver {
   constructor(private userService: UsersService) {}
 
   @Public()
-  @Mutation(() => CreateUserOutput, {
-    name: 'signup',
-  })
+  @Mutation(() => User, { name: 'signup' })
   async createUser(
     @Args('createUserInput') input: CreateUserInput,
-  ): Promise<CreateUserOutput> {
-    const result = await this.userService.create(input);
-    if (result.ok === false) {
-      return { ok: false, message: result.error };
-    }
-
-    return { ok: true, user: result.data };
+  ): Promise<UserModel> {
+    return this.userService.create(input);
   }
 
-  @Query(() => User, {
-    name: 'profile',
-  })
+  @Query(() => User, { name: 'profile' })
   async getProfile(@CurrentUser() user: UserModel) {
     return this.userService.findOneByEmail(user.email);
   }
 
-  @Mutation(() => User, {
-    name: 'editProfile',
-  })
+  @Mutation(() => User, { name: 'editProfile' })
   async editProfile(
     @CurrentUser() user: UserModel,
     @Args('data') updateDto: UpdateDto,

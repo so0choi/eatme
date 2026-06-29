@@ -7,7 +7,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
     super({
       accelerateUrl: process.env.DATABASE_URL,
-      log: ['query', 'info', 'warn', 'error'],
+      log: ['warn', 'error'],
     });
     return this.$extends(withAccelerate()) as unknown as PrismaService;
   }

@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { updateUserSchema } from '@bangtalchul/schemas';
+import { updateUserSchema } from '@eatme/schemas';
 
 @InputType()
 export class UpdateDto {

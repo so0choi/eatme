@@ -8,6 +8,7 @@ import { AuthResolver } from './auth.resolver';
 
 import { ACCESS_TOKEN_EXPIRES_IN, AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 config();
 
@@ -15,9 +16,13 @@ config();
   imports: [
     UsersModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: ACCESS_TOKEN_EXPIRES_IN },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: ACCESS_TOKEN_EXPIRES_IN },
+      }),
     }),
   ],
   controllers: [AuthController],

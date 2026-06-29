@@ -1,7 +1,5 @@
-import { CoreResponse } from '@common/dtos/core-response.dto';
-import { Field, InputType, ObjectType } from '@nestjs/graphql';
-import { User } from '../models/user.model';
-import { createUserSchema } from '@bangtalchul/schemas';
+import { Field, InputType } from '@nestjs/graphql';
+import { createUserSchema } from '@eatme/schemas';
 
 @InputType()
 export class CreateUserInput {
@@ -24,10 +22,4 @@ export class CreateUserInput {
 
   @Field({ nullable: true })
   phone?: string;
-}
-
-@ObjectType()
-export class CreateUserOutput extends CoreResponse {
-  @Field(() => User, { nullable: true })
-  user?: User;
 }
