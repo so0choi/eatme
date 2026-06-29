@@ -3,9 +3,10 @@
 import { z } from 'zod';
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { getClient } from '@/app/ApolloClient';
-import { CREATE_INGREDIENT } from '@/queries/fridge.queries';
+import { UPDATE_INGREDIENT } from '@/queries/fridge.queries';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import type { AddIngredientState } from './add-ingredient';
 
 const schema = z.object({
   name: z.string().min(1, '재료명을 입력해주세요.'),
@@ -37,12 +38,11 @@ const schema = z.object({
     .optional(),
 });
 
-export type AddIngredientState = {
-  error?: Record<string, string[]>;
-  success?: boolean;
-} | null;
-
-export async function addIngredient(_: AddIngredientState, formData: FormData) {
+export async function updateIngredient(
+  id: number,
+  _: AddIngredientState,
+  formData: FormData,
+): Promise<AddIngredientState> {
   const raw = {
     name: formData.get('name'),
     storage: formData.get('storage'),
@@ -65,19 +65,20 @@ export async function addIngredient(_: AddIngredientState, formData: FormData) {
   }
 
   try {
-    await getClient().mutate<{ createIngredient: { id: number } }>({
-      mutation: CREATE_INGREDIENT,
-      variables: { input: validated.data },
+    await getClient().mutate<{ updateIngredient: { id: number } }>({
+      mutation: UPDATE_INGREDIENT,
+      variables: { input: { id, ...validated.data } },
     });
   } catch (err) {
     if (CombinedGraphQLErrors.is(err)) {
-      const message = err.errors[0]?.message ?? '재료 추가에 실패했습니다.';
+      const message = err.errors[0]?.message ?? '재료 수정에 실패했습니다.';
       return { error: { _form: [message] } };
     }
-    return { error: { _form: ['재료 추가에 실패했습니다.'] } };
+    return { error: { _form: ['재료 수정에 실패했습니다.'] } };
   }
 
   revalidatePath('/fridge');
   revalidatePath('/dashboard');
+  revalidatePath(`/fridge/${id}/edit`);
   redirect('/fridge');
 }

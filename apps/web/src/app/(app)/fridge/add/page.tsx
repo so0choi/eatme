@@ -1,65 +1,115 @@
-'use client';
-
-import { useState } from 'react';
+import dayjs from 'dayjs';
 import {
-  Snowflake,
-  Package,
-  UtensilsCrossed,
   Camera,
-  Leaf,
-  Timer,
-  ShoppingBasket,
   Info,
+  Leaf,
+  Package,
+  ShoppingBasket,
+  Snowflake,
+  Timer,
+  UtensilsCrossed,
 } from 'lucide-react';
 
-type StorageZone = 'fridge' | 'freezer' | 'pantry';
+import { getClient } from '@/app/ApolloClient';
+import { GET_ALL_INGREDIENTS } from '@/queries/fridge.queries';
+import FridgeForm from '@/components/fridge/FridgeForm';
+import { addIngredient } from '@/components/fridge/actions/add-ingredient';
+import { Ingredient, IngredientStatus, StorageType } from 'gql/graphql';
 
-const zoneOptions: { value: StorageZone; label: string; Icon: React.ElementType }[] = [
-  { value: 'fridge', label: '냉장', Icon: Snowflake },
-  { value: 'freezer', label: '냉동', Icon: UtensilsCrossed },
-  { value: 'pantry', label: '선반', Icon: Package },
-];
-
-const inventoryItems = [
-  {
-    name: '유기농 케일',
-    sub: '오늘 추가됨',
-    Icon: Leaf,
-    badge: '신선',
-    badgeClass: 'bg-primary/10 text-primary',
-    iconBg: 'bg-primary-container/20 text-primary',
+const storageMeta: Record<
+  StorageType,
+  { label: string; Icon: React.ElementType; barColor: string; textColor: string }
+> = {
+  [StorageType.Fridge]: {
+    label: '냉장',
+    Icon: Snowflake,
+    barColor: 'bg-primary',
+    textColor: 'text-primary',
   },
-  {
-    name: '그릭 요거트',
-    sub: '내일 만료',
-    Icon: Timer,
-    badge: '긴급',
-    badgeClass: 'bg-destructive/10 text-destructive',
-    iconBg: 'bg-tertiary-container/20 text-tertiary',
+  [StorageType.Freezer]: {
+    label: '냉동',
+    Icon: UtensilsCrossed,
+    barColor: 'bg-org',
+    textColor: 'text-org',
   },
-  {
-    name: '방목 달걀',
-    sub: '냉장 보관 중',
-    Icon: ShoppingBasket,
-    badge: '선반',
-    badgeClass: 'bg-org/10 text-org',
-    iconBg: 'bg-secondary-fixed/60 text-org',
+  [StorageType.Pantry]: {
+    label: '선반',
+    Icon: Package,
+    barColor: 'bg-tertiary',
+    textColor: 'text-tertiary',
   },
-] as const;
+};
 
-const capacityBars = [
-  { label: '냉장', percent: 82, barColor: 'bg-primary', textColor: 'text-primary' },
-  { label: '냉동', percent: 45, barColor: 'bg-org', textColor: 'text-org' },
-];
+function getStatusBadge(item: Ingredient) {
+  if (item.status === IngredientStatus.Expired) {
+    return { text: '만료', badgeClass: 'bg-error/10 text-error' };
+  }
+  if (item.status === IngredientStatus.ExpiringSoon) {
+    return { text: '긴급', badgeClass: 'bg-tertiary-container/30 text-tertiary' };
+  }
+  return { text: '신선', badgeClass: 'bg-primary/10 text-primary' };
+}
 
-export default function AddIngredientPage() {
-  const [zone, setZone] = useState<StorageZone>('fridge');
+function getSubText(item: Ingredient) {
+  if (item.expireAt) {
+    const daysLeft = dayjs(item.expireAt).diff(dayjs(), 'day');
+    if (daysLeft < 0) return '기한 지남';
+    if (daysLeft === 0) return '오늘 만료';
+    if (daysLeft === 1) return '내일 만료';
+    return `${daysLeft}일 남음`;
+  }
+  return storageMeta[item.storage].label + ' 보관 중';
+}
+
+function pickIcon(item: Ingredient): React.ElementType {
+  if (item.status === IngredientStatus.ExpiringSoon || item.status === IngredientStatus.Expired) {
+    return Timer;
+  }
+  if (item.category === 'VEGETABLE' || item.category === 'FRUIT') return Leaf;
+  return ShoppingBasket;
+}
+
+export default async function AddIngredientPage() {
+  const { data } = await getClient().query<{ getAllIngredients: Ingredient[] }>({
+    query: GET_ALL_INGREDIENTS,
+  });
+
+  const ingredients = data?.getAllIngredients ?? [];
+
+  const recent = [...ingredients]
+    .sort((a, b) => {
+      const aUrgent =
+        a.status === IngredientStatus.ExpiringSoon || a.status === IngredientStatus.Expired
+          ? 0
+          : 1;
+      const bUrgent =
+        b.status === IngredientStatus.ExpiringSoon || b.status === IngredientStatus.Expired
+          ? 0
+          : 1;
+      if (aUrgent !== bUrgent) return aUrgent - bUrgent;
+      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
+    })
+    .slice(0, 3);
+
+  const total = ingredients.length || 1;
+  const capacityBars = (Object.keys(storageMeta) as StorageType[]).map((storage) => {
+    const count = ingredients.filter((i) => i.storage === storage).length;
+    return {
+      storage,
+      label: storageMeta[storage].label,
+      percent: Math.round((count / total) * 100),
+      count,
+      barColor: storageMeta[storage].barColor,
+      textColor: storageMeta[storage].textColor,
+    };
+  });
 
   return (
     <div className="space-y-8 max-w-5xl">
-      {/* Page Title */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-1">냉장고</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-1">
+          냉장고
+        </p>
         <h1 className="font-display text-4xl font-bold text-on-surface tracking-tight">
           재료 채우기
         </h1>
@@ -69,110 +119,11 @@ export default function AddIngredientPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ── Form Card ── */}
         <div className="lg:col-span-7 rounded-3xl bg-surface-container-lowest p-8 shadow-ambient">
-          <form className="space-y-7">
-            {/* Ingredient Name */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
-                재료명
-              </label>
-              <input
-                type="text"
-                placeholder="예: 시금치"
-                className="w-full rounded-xl bg-surface-container px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-              />
-            </div>
-
-            {/* Quantity + Unit */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
-                  수량
-                </label>
-                <input
-                  type="number"
-                  placeholder="250"
-                  className="w-full rounded-xl bg-surface-container px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
-                  단위
-                </label>
-                <select className="w-full rounded-xl bg-surface-container px-4 py-3 text-sm text-on-surface focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
-                  <option>그램 (g)</option>
-                  <option>킬로그램 (kg)</option>
-                  <option>밀리리터 (ml)</option>
-                  <option>리터 (l)</option>
-                  <option>개 (ea)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Storage Zone */}
-            <div className="space-y-3">
-              <label className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
-                보관 위치
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {zoneOptions.map(({ value, label, Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setZone(value)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all ${
-                      zone === value
-                        ? 'bg-org text-on-primary shadow-ambient'
-                        : 'bg-surface-container text-on-surface-variant hover:bg-surface-container'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Expiration Date */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
-                유통기한
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  className="w-full rounded-xl bg-surface-container px-4 py-3 text-sm text-on-surface focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <span className="text-xs font-semibold text-tertiary bg-tertiary-container/20 px-2 py-1 rounded-lg">
-                    신선도 리드: 7일
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-2 flex gap-3">
-              <button
-                type="submit"
-                className="flex-1 bg-primary text-on-primary rounded-2xl py-3.5 font-semibold shadow-ambient hover:opacity-90 hover:-translate-y-0.5 transition-all"
-              >
-                확인 &amp; 저장
-              </button>
-              <button
-                type="reset"
-                className="px-8 text-primary rounded-2xl py-3.5 font-semibold hover:bg-surface-container transition-all"
-              >
-                초기화
-              </button>
-            </div>
-          </form>
+          <FridgeForm action={addIngredient} />
         </div>
 
-        {/* ── Right Panel ── */}
         <div className="lg:col-span-5 space-y-5">
-          {/* Scan & Auto-Fill CTA */}
           <div className="rounded-3xl bg-linear-to-br from-primary to-primary-container p-8 shadow-ambient">
             <h3 className="font-display text-2xl font-bold text-on-primary mb-2">
               스캔 &amp; 자동 입력
@@ -189,46 +140,54 @@ export default function AddIngredientPage() {
             </button>
           </div>
 
-          {/* Inventory Status */}
           <div className="rounded-3xl bg-surface-container-lowest p-6 shadow-ambient">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-lg font-bold text-on-surface">재고 현황</h3>
               <Info className="h-4 w-4 text-on-surface-variant/40" />
             </div>
             <div className="space-y-4">
-              {inventoryItems.map(({ name, sub, Icon, badge, badgeClass, iconBg }) => (
-                <div key={name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconBg}`}
-                    >
-                      <Icon className="h-5 w-5" />
+              {recent.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">
+                  아직 등록된 재료가 없습니다.
+                </p>
+              ) : (
+                recent.map((item) => {
+                  const badge = getStatusBadge(item);
+                  const Icon = pickIcon(item);
+                  return (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-primary-container/20 text-primary">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-on-surface">{item.name}</p>
+                          <p className="text-xs text-on-surface-variant">{getSubText(item)}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-full uppercase ${badge.badgeClass}`}
+                      >
+                        {badge.text}
+                      </span>
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm text-on-surface">{name}</p>
-                      <p className="text-xs text-on-surface-variant">{sub}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-full uppercase ${badgeClass}`}
-                  >
-                    {badge}
-                  </span>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Storage Capacity */}
           <div className="rounded-3xl bg-surface-container-low p-6">
             <h4 className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-5">
-              보관 용량
+              보관 분포
             </h4>
             <div className="space-y-4">
-              {capacityBars.map(({ label, percent, barColor, textColor }) => (
-                <div key={label}>
+              {capacityBars.map(({ storage, label, percent, count, barColor, textColor }) => (
+                <div key={storage}>
                   <div className="flex justify-between text-xs mb-1.5 font-medium">
-                    <span className="text-on-surface-variant">{label}</span>
+                    <span className="text-on-surface-variant">
+                      {label} · {count}개
+                    </span>
                     <span className={textColor}>{percent}%</span>
                   </div>
                   <div className="h-2 bg-surface-container rounded-full overflow-hidden">

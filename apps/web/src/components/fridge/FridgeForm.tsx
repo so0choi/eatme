@@ -5,9 +5,28 @@ import { useActionState, useState } from 'react';
 import { Snowflake, Package, UtensilsCrossed } from 'lucide-react';
 import TextField from '../form/TextField';
 import { DatePicker } from '../date-picker';
-import { addIngredient } from './actions/add-ingredient';
+import { CATEGORY_OPTIONS } from './filter-options';
+import type { AddIngredientState } from './actions/add-ingredient';
 
 type StorageZone = 'FRIDGE' | 'FREEZER' | 'PANTRY';
+
+export type FridgeFormDefaults = {
+  name?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  storage?: StorageZone | string | null;
+  category?: string | null;
+  expireAt?: string | Date | null;
+};
+
+// 폼에서 선택 가능한 실제 카테고리 (사이드바용 '전체' 옵션 제외)
+const categorySelectOptions = CATEGORY_OPTIONS.filter((o) => o.category !== null);
+
+type FridgeFormProps = {
+  action: (state: AddIngredientState, formData: FormData) => Promise<AddIngredientState>;
+  defaultValues?: FridgeFormDefaults;
+  submitLabel?: string;
+};
 
 const zoneOptions: {
   value: StorageZone;
@@ -16,20 +35,33 @@ const zoneOptions: {
 }[] = [
   { value: 'FRIDGE', label: '냉장', Icon: Snowflake },
   { value: 'FREEZER', label: '냉동', Icon: UtensilsCrossed },
-  { value: 'PANTRY', label: '선반', Icon: Package },
+  { value: 'PANTRY', label: '실온', Icon: Package },
 ];
 
 const inputClass =
   'w-full rounded-xl bg-surface-container px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
-const FridgeForm = () => {
-  const [state, action, pending] = useActionState(addIngredient, undefined);
-  const [zone, setZone] = useState<StorageZone>('FRIDGE');
+function normalizeStorage(value: FridgeFormDefaults['storage']): StorageZone {
+  if (value === 'FRIDGE' || value === 'FREEZER' || value === 'PANTRY') {
+    return value;
+  }
+  return 'FRIDGE';
+}
+
+function toDate(value: FridgeFormDefaults['expireAt']): Date | undefined {
+  if (!value) return undefined;
+  return value instanceof Date ? value : new Date(value);
+}
+
+const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: FridgeFormProps) => {
+  const [state, formAction, pending] = useActionState(action, null);
+  const [zone, setZone] = useState<StorageZone>(normalizeStorage(defaultValues?.storage));
+  const [expireAt, setExpireAt] = useState<Date | undefined>(toDate(defaultValues?.expireAt));
 
   const fieldError = (field: string) => state?.error?.[field]?.[0];
 
   return (
-    <Form className="space-y-7" action={action}>
+    <Form className="space-y-7" action={formAction}>
       {/* 폼 전체 에러 */}
       {fieldError('_form') && (
         <div className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -44,6 +76,7 @@ const FridgeForm = () => {
         label="재료명"
         placeholder="예: 시금치"
         required
+        defaultValue={defaultValues?.name ?? ''}
         error={fieldError('name')}
         className={inputClass}
       />
@@ -56,19 +89,18 @@ const FridgeForm = () => {
           label="수량"
           type="number"
           placeholder="250"
+          defaultValue={defaultValues?.quantity ?? ''}
           error={fieldError('quantity')}
           className={inputClass}
         />
         <div>
-          <label
-            htmlFor="unit"
-            className="text-sm font-semibold text-on-surface-variant"
-          >
+          <label htmlFor="unit" className="text-sm font-semibold text-on-surface-variant">
             단위
           </label>
           <select
             id="unit"
             name="unit"
+            defaultValue={defaultValues?.unit ?? 'G'}
             className={`mt-2 ${inputClass} appearance-none`}
           >
             <option value="G">그램 (g)</option>
@@ -78,6 +110,32 @@ const FridgeForm = () => {
             <option value="EA">개 (ea)</option>
           </select>
         </div>
+      </div>
+
+      {/* 카테고리 */}
+      <div>
+        <label
+          htmlFor="category"
+          className="block text-xs font-semibold uppercase tracking-[0.05rem] text-primary"
+        >
+          카테고리
+        </label>
+        <select
+          id="category"
+          name="category"
+          defaultValue={defaultValues?.category ?? ''}
+          className={`mt-2 ${inputClass} appearance-none`}
+        >
+          <option value="">카테고리 선택</option>
+          {categorySelectOptions.map((o) => (
+            <option key={o.key} value={o.category as string}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {fieldError('category') && (
+          <p className="mt-1 text-xs text-destructive">{fieldError('category')}</p>
+        )}
       </div>
 
       {/* 보관 위치 */}
@@ -121,6 +179,8 @@ const FridgeForm = () => {
           placeholder="유통기한 선택"
           className={`${inputClass} w-full`}
           disabled={pending}
+          value={expireAt}
+          onChange={setExpireAt}
         />
         {fieldError('expireAt') && (
           <p className="text-xs text-destructive">{fieldError('expireAt')}</p>
@@ -134,7 +194,7 @@ const FridgeForm = () => {
           disabled={pending}
           className="flex-1 bg-primary text-on-primary rounded-2xl py-3.5 font-semibold shadow-ambient hover:opacity-90 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {pending ? '저장 중...' : '확인 & 저장'}
+          {pending ? '저장 중...' : submitLabel}
         </button>
         <button
           type="reset"

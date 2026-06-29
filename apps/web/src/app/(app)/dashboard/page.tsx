@@ -1,43 +1,18 @@
-import Image from 'next/image';
 import { Package, AlertTriangle, PiggyBank } from 'lucide-react';
 import dayjs from 'dayjs';
 import { getClient } from '@/app/ApolloClient';
 import { GET_ALL_INGREDIENTS } from '@/queries/fridge.queries';
 import { Ingredient, IngredientStatus } from 'gql/graphql';
 import IngredientsSection from '@/components/dashboard/IngredientsSection';
-
-const expiringItems = [
-  {
-    name: '우유',
-    brand: 'Organic Valley · 1L',
-    badge: '2일 후 만료',
-    freshnessPercent: 15,
-    meterColor: 'bg-tertiary',
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCwd3OctrtDJ_DffklmgJkiwnM3RdZzy41pB1zhWygI4i2W8afCr_fGdlnxfp_gRtbuT8ccWvABLHGjQDVSjHMgjkBG6oyf7rt3awOA7Fa-yREQC3rNLmg_CSc6rsPFk1mEJVEV8LXhQeRHBHjqiBCwJy_-y0NJR54G6os86aWIEyzV9yg85MoQCAJujlRUrPYaZrxef0Bq5COBMuNLz8aQsp_42-xBATqVaRFTTkinka1UK08QbnyTTsFH-tDEMhMJcaNFTCcTEpL7',
-    cardBg: 'bg-tertiary-container',
-  },
-  {
-    name: '어린잎 시금치',
-    brand: 'Fresh Farms · 500g',
-    badge: '내일 만료',
-    freshnessPercent: 5,
-    meterColor: 'bg-error',
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCRM80TD2wVbiajRESkQgFc_79sY55jHNueqhXvT5eWGVJcKp5A3Ytt8fBBw0_EKjwxi-v-BDTVV2Zbpuqvvejgm09s75vGGl9iUCf3JwRVwL-MWg3eVvf9sE-sExH6SXan9rfL8tBOyskDpAKFSzCMOj6NpYftU0ShaGGVx4AmT3EmpHBS00AkormYcqHsYUg3RxInBntNF3Jy_XjeflKNn0cz8G2hPI7XhjR8xZX4cQP-5mY2w9Tr12Rbj5ADpXSOUq7NGtHYi0he',
-    cardBg: 'bg-surface-container-lowest',
-  },
-];
+import { getIngredientEmoji } from '@/components/fridge/ingredient-icons';
 
 export default async function DashboardPage() {
-  const { data } = await getClient().query<{ getAllIngredients: Ingredient[] }>(
-    {
-      query: GET_ALL_INGREDIENTS,
-    },
-  );
+  const { data } = await getClient().query<{ getAllIngredients: Ingredient[] }>({
+    query: GET_ALL_INGREDIENTS,
+  });
 
   const ingredients = data?.getAllIngredients ?? [];
-  const expiringItems = ingredients.filter(
-    (i) => i.status === IngredientStatus.ExpiringSoon,
-  );
+  const expiringItems = ingredients.filter((i) => i.status === IngredientStatus.ExpiringSoon);
   const totalValue = ingredients.reduce((sum, i) => sum + (i.price ?? 0), 0);
 
   const stats = [
@@ -51,7 +26,7 @@ export default async function DashboardPage() {
     },
     {
       label: '곧 만료',
-      value: String(expiringItems.length).padStart(2, '0'),
+      value: String(expiringItems.length),
       color: 'text-tertiary',
       bgIcon: 'bg-tertiary-container/10',
       iconColor: 'text-tertiary',
@@ -77,9 +52,7 @@ export default async function DashboardPage() {
         <h1 className="font-display text-4xl font-bold text-on-surface leading-none">
           냉장고 현황.
         </h1>
-        <p className="mt-2 text-sm text-on-surface-variant">
-          재료를 정확하게 관리하세요.
-        </p>
+        <p className="mt-2 text-sm text-on-surface-variant">재료를 정확하게 관리하세요.</p>
       </section>
 
       {/* Quick Stats */}
@@ -95,9 +68,7 @@ export default async function DashboardPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-on-surface-variant mb-1">
                   {stat.label}
                 </p>
-                <p className={`font-display text-4xl font-bold ${stat.color}`}>
-                  {stat.value}
-                </p>
+                <p className={`font-display text-4xl font-bold ${stat.color}`}>{stat.value}</p>
               </div>
               <div className={`${stat.bgIcon} p-4 rounded-full`}>
                 <Icon className={`h-7 w-7 ${stat.iconColor}`} />
@@ -112,9 +83,7 @@ export default async function DashboardPage() {
         {/* Left: Expiring Soon */}
         <section className="xl:col-span-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-bold text-on-surface">
-              곧 만료
-            </h2>
+            <h2 className="font-display text-xl font-bold text-on-surface">곧 만료</h2>
             <a
               href="#"
               className="text-sm font-semibold text-primary hover:opacity-80 transition-opacity"
@@ -127,9 +96,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-on-surface-variant">만료 임박 재료가 없습니다.</p>
           ) : (
             expiringItems.slice(0, 2).map((item) => {
-              const daysLeft = item.expireAt
-                ? dayjs(item.expireAt).diff(dayjs(), 'day')
-                : null;
+              const daysLeft = item.expireAt ? dayjs(item.expireAt).diff(dayjs(), 'day') : null;
               const badge =
                 daysLeft === null
                   ? '만료 임박'
@@ -152,30 +119,18 @@ export default async function DashboardPage() {
                       {badge}
                     </span>
                   </div>
-                  {item.imageUrl ? (
-                    <div className="h-44 overflow-hidden">
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.name}
-                        width={600}
-                        height={176}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-44 bg-surface-container flex items-center justify-center">
-                      <span className="text-6xl font-bold text-on-surface-variant/20">
-                        {item.name[0]}
-                      </span>
-                    </div>
-                  )}
+                  <div className="h-44 bg-surface-container flex items-center justify-center">
+                    <span className="text-7xl leading-none" aria-hidden="true">
+                      {getIngredientEmoji(item.category)}
+                    </span>
+                  </div>
                   <div className="p-6 bg-surface-container-lowest/80 backdrop-blur-md">
                     <h3 className="font-display text-lg font-semibold text-on-surface mb-0.5">
                       {item.name}
                     </h3>
                     <p className="text-sm text-on-surface-variant mb-4">
-                      {item.storage} · {item.quantity}{item.unit ?? ''}
+                      {item.storage} · {item.quantity}
+                      {item.unit ?? ''}
                     </p>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-xs font-semibold uppercase tracking-[0.05rem] text-on-surface-variant">

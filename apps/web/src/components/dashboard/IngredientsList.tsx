@@ -1,6 +1,7 @@
 import { Ingredient, IngredientStatus } from 'gql/graphql';
-import Image from 'next/image';
+import Link from 'next/link';
 import dayjs from 'dayjs';
+import { getIngredientEmoji } from '@/components/fridge/ingredient-icons';
 
 const statusConfig: Record<
   IngredientStatus,
@@ -34,25 +35,15 @@ const IngredientsList: React.FC<{ ingredients: Ingredient[] }> = ({
   return ingredients.map((item) => {
     const status = statusConfig[item.status || IngredientStatus.Fresh];
     return (
-      <div
-        key={item.name}
+      <Link
+        key={item.id}
+        href={`/fridge/${item.id}/edit`}
         className="rounded-2xl bg-surface-container-lowest px-5 py-4 flex items-center gap-4 hover:shadow-ambient transition cursor-pointer"
       >
         <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-container shrink-0 flex items-center justify-center">
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
-              alt={item.name}
-              width={48}
-              height={48}
-              className="w-full h-full object-cover"
-              unoptimized
-            />
-          ) : (
-            <span className="text-sm font-bold text-on-surface-variant">
-              {item.name[0]}
-            </span>
-          )}
+          <span className="text-2xl leading-none" aria-hidden="true">
+            {getIngredientEmoji(item.category)}
+          </span>
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-display text-sm font-semibold text-on-surface truncate">
@@ -75,7 +66,7 @@ const IngredientsList: React.FC<{ ingredients: Ingredient[] }> = ({
             {status.label}
           </span>
         </div>
-      </div>
+      </Link>
     );
   });
 };

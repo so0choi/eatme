@@ -11,23 +11,15 @@ const filters: { label: string; value: StorageType | null }[] = [
   { label: '실온', value: StorageType.Pantry },
 ];
 
-export default function IngredientsSection({
-  ingredients,
-}: {
-  ingredients: Ingredient[];
-}) {
+export default function IngredientsSection({ ingredients }: { ingredients: Ingredient[] }) {
   const [active, setActive] = useState<StorageType | null>(null);
 
-  const filtered = active
-    ? ingredients.filter((i) => i.storage === active)
-    : ingredients;
+  const filtered = active ? ingredients.filter((i) => i.storage === active) : ingredients;
 
   return (
     <div className="rounded-3xl bg-surface-container-low p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <h2 className="font-display text-xl font-bold text-on-surface">
-          전체 재료
-        </h2>
+        <h2 className="font-display text-xl font-bold text-on-surface">전체 재료</h2>
         <div className="flex gap-2 flex-wrap">
           {filters.map(({ label, value }) => (
             <button
@@ -49,9 +41,7 @@ export default function IngredientsSection({
         {filtered.length > 0 ? (
           <IngredientsList ingredients={filtered} />
         ) : (
-          <p className="text-sm text-on-surface-variant">
-            해당 재료가 없습니다.
-          </p>
+          <p className="text-sm text-on-surface-variant">재료가 없습니다.</p>
         )}
       </div>
 
