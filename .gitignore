@@ -26,3 +26,6 @@ mcp.json
 dist/
 packages/*/dist/
 *.tsbuildinfo
+
+# Personal scratch directory (not tracked)
+/jayhoon/
