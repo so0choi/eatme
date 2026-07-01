@@ -59,6 +59,7 @@ export default async function EditIngredientPage({ params }: PageProps) {
           submitLabel="수정 저장"
           defaultValues={{
             name: ingredient.name,
+            price: ingredient.price,
             quantity: ingredient.quantity,
             unit: ingredient.unit,
             storage: ingredient.storage,

@@ -6,6 +6,16 @@ import { getClient } from '@/app/ApolloClient';
 import { CREATE_INGREDIENT } from '@/queries/fridge.queries';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { getRecommendedUseBy, type StorageZone } from '../shelf-life-rules';
+
+function isTodayOrFuture(value: string) {
+  const selected = new Date(value);
+  if (Number.isNaN(selected.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  selected.setHours(0, 0, 0, 0);
+  return selected >= today;
+}
 
 const schema = z.object({
   name: z.string().min(1, '재료명을 입력해주세요.'),
@@ -15,7 +25,10 @@ const schema = z.object({
     .positive('수량은 0보다 커야 합니다.')
     .optional(),
   unit: z.enum(['EA', 'G', 'KG', 'ML', 'L']).optional(),
-  expireAt: z.string().optional(),
+  expireAt: z
+    .string()
+    .refine(isTodayOrFuture, '이미 지난 날짜는 선택할 수 없습니다.')
+    .optional(),
   category: z
     .enum([
       'MEAT',
@@ -65,9 +78,15 @@ export async function addIngredient(_: AddIngredientState, formData: FormData) {
   }
 
   try {
+    const input = { ...validated.data };
+    if (!input.expireAt) {
+      const recommendation = getRecommendedUseBy(input.name, input.storage as StorageZone);
+      input.expireAt = recommendation?.useBy.toISOString();
+    }
+
     await getClient().mutate<{ createIngredient: { id: number } }>({
       mutation: CREATE_INGREDIENT,
-      variables: { input: validated.data },
+      variables: { input },
     });
   } catch (err) {
     if (CombinedGraphQLErrors.is(err)) {

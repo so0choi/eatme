@@ -4,6 +4,7 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import type { Matcher } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ interface DatePickerProps {
   dateFormat?: string;
   className?: string;
   disabled?: boolean;
+  disabledDates?: Matcher | Matcher[];
 }
 
 export function DatePicker({
@@ -31,6 +33,7 @@ export function DatePicker({
   dateFormat = 'yyyy. MM. dd',
   className,
   disabled,
+  disabledDates,
 }: DatePickerProps) {
   // controlled면 외부 상태, uncontrolled면 내부 상태 사용
   const [internalDate, setInternalDate] = React.useState<Date>();
@@ -71,7 +74,13 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0">
-          <Calendar mode="single" selected={date} onSelect={handleSelect} locale={ko} />
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={handleSelect}
+            locale={ko}
+            disabled={disabledDates}
+          />
         </PopoverContent>
       </Popover>
     </>

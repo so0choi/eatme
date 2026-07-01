@@ -1,17 +1,23 @@
 'use client';
 
 import Form from 'next/form';
-import { useActionState, useState } from 'react';
+import { useActionState, useState, type ChangeEvent } from 'react';
 import { Snowflake, Package, UtensilsCrossed } from 'lucide-react';
+import { format } from 'date-fns';
 import TextField from '../form/TextField';
 import { DatePicker } from '../date-picker';
 import { CATEGORY_OPTIONS } from './filter-options';
 import type { AddIngredientState } from './actions/add-ingredient';
-
-type StorageZone = 'FRIDGE' | 'FREEZER' | 'PANTRY';
+import {
+  findShelfLifeRule,
+  getRecommendedUseBy,
+  storageLabels,
+  type StorageZone,
+} from './shelf-life-rules';
 
 export type FridgeFormDefaults = {
   name?: string | null;
+  price?: number | null;
   quantity?: number | null;
   unit?: string | null;
   storage?: StorageZone | string | null;
@@ -53,12 +59,36 @@ function toDate(value: FridgeFormDefaults['expireAt']): Date | undefined {
   return value instanceof Date ? value : new Date(value);
 }
 
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
 const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: FridgeFormProps) => {
   const [state, formAction, pending] = useActionState(action, null);
+  const [name, setName] = useState(defaultValues?.name ?? '');
   const [zone, setZone] = useState<StorageZone>(normalizeStorage(defaultValues?.storage));
   const [expireAt, setExpireAt] = useState<Date | undefined>(toDate(defaultValues?.expireAt));
+  const [storageTouched, setStorageTouched] = useState(Boolean(defaultValues?.storage));
 
   const fieldError = (field: string) => state?.error?.[field]?.[0];
+  const shelfLifeRule = findShelfLifeRule(name);
+  const recommendation = getRecommendedUseBy(name, zone);
+
+  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextName = event.target.value;
+    setName(nextName);
+    const nextRule = findShelfLifeRule(nextName);
+    if (!storageTouched && nextRule) {
+      setZone(nextRule.recommendedStorage);
+    }
+  };
+
+  const handleZoneChange = (value: StorageZone) => {
+    setStorageTouched(true);
+    setZone(value);
+  };
 
   return (
     <Form className="space-y-7" action={formAction}>
@@ -77,7 +107,23 @@ const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: 
         placeholder="예: 시금치"
         required
         defaultValue={defaultValues?.name ?? ''}
+        onChange={handleNameChange}
         error={fieldError('name')}
+        className={inputClass}
+      />
+
+      {/* 가격 */}
+      <TextField
+        id="price"
+        name="price"
+        label="가격"
+        type="number"
+        inputMode="numeric"
+        min={0}
+        step={1}
+        placeholder="예: 3500"
+        defaultValue={defaultValues?.price ?? ''}
+        error={fieldError('price')}
         className={inputClass}
       />
 
@@ -149,7 +195,7 @@ const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: 
             <button
               key={value}
               type="button"
-              onClick={() => setZone(value)}
+              onClick={() => handleZoneChange(value)}
               className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all ${
                 zone === value
                   ? 'bg-org text-on-primary shadow-ambient'
@@ -164,6 +210,12 @@ const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: 
         {fieldError('storage') && (
           <p className="text-xs text-destructive">{fieldError('storage')}</p>
         )}
+        {shelfLifeRule && shelfLifeRule.recommendedStorage !== zone && (
+          <p className="text-xs font-semibold text-on-surface-variant">
+            {shelfLifeRule.label}은 보통 {storageLabels[shelfLifeRule.recommendedStorage]} 보관을
+            추천해요.
+          </p>
+        )}
       </div>
 
       {/* 유통기한 */}
@@ -176,12 +228,33 @@ const FridgeForm = ({ action, defaultValues, submitLabel = '확인 & 저장' }: 
         </label>
         <DatePicker
           name="expireAt"
-          placeholder="유통기한 선택"
+          placeholder="날짜를 직접 선택하거나 추천값 사용"
           className={`${inputClass} w-full`}
           disabled={pending}
+          disabledDates={{ before: startOfToday() }}
           value={expireAt}
           onChange={setExpireAt}
         />
+        {recommendation ? (
+          <div className="rounded-2xl bg-primary-container/15 px-4 py-3 text-sm text-on-surface-variant">
+            <p className="font-semibold text-on-surface">
+              권장 소비기한 {format(recommendation.useBy, 'yyyy. MM. dd')}
+            </p>
+            <p className="mt-1">
+              {recommendation.rule.label}은 {storageLabels[zone]} 보관 기준 {recommendation.days}
+              일 내 소비를 추천해요. 날짜를 직접 선택하지 않으면 이 추천 날짜로 저장됩니다.
+            </p>
+          </div>
+        ) : shelfLifeRule ? (
+          <div className="rounded-2xl bg-surface-container px-4 py-3 text-sm text-on-surface-variant">
+            {shelfLifeRule.label}은 {storageLabels[zone]} 보관 기준이 없어 권장 소비기한을
+            자동 계산하지 않습니다.
+          </div>
+        ) : (
+          <p className="text-xs text-on-surface-variant">
+            등록된 기본 보관 기준이 있으면 권장 소비기한을 자동으로 계산합니다.
+          </p>
+        )}
         {fieldError('expireAt') && (
           <p className="text-xs text-destructive">{fieldError('expireAt')}</p>
         )}
