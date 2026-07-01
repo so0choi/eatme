@@ -83,9 +83,14 @@ function getQuantityLabel(item: Ingredient) {
   return `${item.quantity.toLocaleString('ko-KR')}${item.unit ?? ''}`;
 }
 
-function getFreshnessPercent(daysLeft: number | null) {
-  if (daysLeft === null) return 0;
-  return Math.max(0, Math.min(100, (daysLeft / 14) * 100));
+function getFreshnessPercent(item: Ingredient) {
+  if (!item.expireAt) return 0;
+  const start = dayjs(item.createdAt).startOf('day');
+  const end = dayjs(item.expireAt).startOf('day');
+  const today = dayjs().startOf('day');
+  const totalDays = Math.max(1, end.diff(start, 'day'));
+  const daysLeft = end.diff(today, 'day');
+  return Math.max(0, Math.min(100, (daysLeft / totalDays) * 100));
 }
 
 function getUseFirstItems(ingredients: Ingredient[]) {
@@ -337,7 +342,7 @@ export default async function DashboardPage() {
                     : daysLeft <= 0
                       ? '오늘 처리'
                       : `${daysLeft}일 남음`;
-                const freshnessPercent = getFreshnessPercent(daysLeft);
+                const freshnessPercent = getFreshnessPercent(item);
                 const meterColor =
                   daysLeft !== null && daysLeft <= 1 ? 'bg-error' : 'bg-tertiary';
 

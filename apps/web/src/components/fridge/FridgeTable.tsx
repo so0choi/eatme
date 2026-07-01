@@ -68,6 +68,7 @@ function getStatus(ingredientStatus: IngredientStatus): FreshnessStatus {
 
 function getFreshness(
   expireAt: string | null | undefined,
+  createdAt: string | null | undefined,
   ingredientStatus: IngredientStatus,
 ): number {
   if (!expireAt) {
@@ -75,8 +76,12 @@ function getFreshness(
     if (ingredientStatus === IngredientStatus.ExpiringSoon) return 25;
     return 90;
   }
-  const daysLeft = dayjs(expireAt).diff(dayjs(), 'day');
-  return Math.max(0, Math.min(100, (daysLeft / 30) * 100));
+  const start = createdAt ? dayjs(createdAt).startOf('day') : dayjs().startOf('day');
+  const end = dayjs(expireAt).startOf('day');
+  const today = dayjs().startOf('day');
+  const totalDays = Math.max(1, end.diff(start, 'day'));
+  const daysLeft = end.diff(today, 'day');
+  return Math.max(0, Math.min(100, (daysLeft / totalDays) * 100));
 }
 
 function FreshnessBar({ freshness, status }: { freshness: number; status: FreshnessStatus }) {
@@ -96,7 +101,9 @@ function ExpiryCell({
   expireAt: string | null | undefined;
   status: FreshnessStatus;
 }) {
-  const daysLeft = expireAt ? dayjs(expireAt).diff(dayjs(), 'day') : null;
+  const daysLeft = expireAt
+    ? dayjs(expireAt).startOf('day').diff(dayjs().startOf('day'), 'day')
+    : null;
   const formatted = expireAt ? dayjs(expireAt).format('YYYY. MM. DD') : '-';
   const textColor =
     status === 'imminent'
@@ -365,7 +372,11 @@ export default function FridgeTable({ ingredients }: { ingredients: Ingredient[]
               ) : (
                 rows.map(({ original: item }) => {
                   const status = getStatus(item.status ?? IngredientStatus.Fresh);
-                  const freshness = getFreshness(item.expireAt, item.status ?? IngredientStatus.Fresh);
+                  const freshness = getFreshness(
+                    item.expireAt,
+                    item.createdAt,
+                    item.status ?? IngredientStatus.Fresh,
+                  );
                   const cellBg =
                     status === 'imminent'
                       ? 'bg-error-container/40'
