@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Clock, Users, Soup, ChefHat, Check } from 'lucide-react';
+import { ChevronLeft, Clock, Users, Soup, ChefHat, Check } from 'lucide-react';
 import { getClient } from '@/app/ApolloClient';
 import { GET_RECIPE } from '@/queries/recipe.queries';
 import { Recipe } from 'gql/graphql';
@@ -40,7 +40,7 @@ export default async function RecipeDetailPage({
         href="/recipes"
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant transition hover:text-primary"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" />
         레시피 목록
       </Link>
 

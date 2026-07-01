@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 
 import { getClient } from '@/app/ApolloClient';
 import { GET_INGREDIENT } from '@/queries/fridge.queries';
@@ -39,7 +39,7 @@ export default async function EditIngredientPage({ params }: PageProps) {
           href="/fridge"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.05rem] text-on-surface-variant hover:text-primary transition-colors mb-3"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className="h-3.5 w-3.5" />
           냉장고로 돌아가기
         </Link>
         <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-1">
