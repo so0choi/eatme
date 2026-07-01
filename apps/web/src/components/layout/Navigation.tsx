@@ -12,7 +12,6 @@ const landingNav = [
   { name: '홈', href: '/' },
   { name: '냉장고', href: '/#fridge' },
   { name: '레시피', href: '/#recipes' },
-  { name: '커뮤니티', href: '/#community' },
 ];
 
 // 앱(로그인): 실제 라우트 — 전역 네비게이션 역할
@@ -20,8 +19,7 @@ const appNav = [
   { name: '대시보드', href: '/dashboard' },
   { name: '냉장고', href: '/fridge' },
   { name: '레시피', href: '/recipes' },
-  { name: '인사이트', href: '/insights/waste' },
-  { name: '커뮤니티', href: '/community' },
+  { name: '손실 레포트', href: '/insights/waste' },
 ];
 
 const Navigation: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
