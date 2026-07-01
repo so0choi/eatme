@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -75,9 +76,13 @@ function ChartTooltip({
 export function WasteLineChart({
   data,
   height = 320,
+  showLoss = true,
+  showCount = true,
 }: {
   data: WasteTrendPoint[];
   height?: number;
+  showLoss?: boolean;
+  showCount?: boolean;
 }) {
   return (
     <div style={{ height }}>
@@ -112,38 +117,107 @@ export function WasteLineChart({
           />
           <YAxis yAxisId="count" orientation="right" hide />
           <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--color-primary)' }} />
-          <Area
-            yAxisId="loss"
-            type="monotone"
-            dataKey="totalLoss"
-            name="손실액"
-            stroke="none"
-            fill="url(#loss-fill)"
-            isAnimationActive={false}
-          />
-          <Line
-            yAxisId="loss"
-            type="monotone"
-            dataKey="totalLoss"
-            name="손실액"
-            stroke="var(--color-primary)"
-            strokeWidth={4}
-            dot={{ r: 4, strokeWidth: 3, fill: 'var(--color-surface-container-lowest)' }}
-            activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--color-primary)' }}
-          />
-          <Line
-            yAxisId="count"
-            type="monotone"
-            dataKey="discardedCount"
-            name="품목수"
-            stroke="var(--color-tertiary)"
-            strokeWidth={3}
-            dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-surface-container-lowest)' }}
-            activeDot={{ r: 5, strokeWidth: 0, fill: 'var(--color-tertiary)' }}
-          />
+          {showLoss && (
+            <Area
+              yAxisId="loss"
+              type="monotone"
+              dataKey="totalLoss"
+              name="손실액"
+              stroke="none"
+              fill="url(#loss-fill)"
+              isAnimationActive={false}
+            />
+          )}
+          {showLoss && (
+            <Line
+              yAxisId="loss"
+              type="monotone"
+              dataKey="totalLoss"
+              name="손실액"
+              stroke="var(--color-primary)"
+              strokeWidth={4}
+              dot={{ r: 4, strokeWidth: 3, fill: 'var(--color-surface-container-lowest)' }}
+              activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--color-primary)' }}
+            />
+          )}
+          {showCount && (
+            <Line
+              yAxisId="count"
+              type="monotone"
+              dataKey="discardedCount"
+              name="품목수"
+              stroke="var(--color-tertiary-container)"
+              strokeWidth={3}
+              dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-surface-container-lowest)' }}
+              activeDot={{ r: 5, strokeWidth: 0, fill: 'var(--color-tertiary-container)' }}
+            />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>
+  );
+}
+
+export function DailyWasteTrend({ data }: { data: WasteTrendPoint[] }) {
+  const [showLoss, setShowLoss] = useState(true);
+  const [showCount, setShowCount] = useState(true);
+
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.05rem] text-primary">
+            Daily trend
+          </p>
+          <h2 className="font-display text-3xl font-bold text-on-surface">
+            이번 달 일별 폐기 흐름
+          </h2>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            aria-pressed={showLoss}
+            onClick={() => setShowLoss((prev) => !prev)}
+            className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+              showLoss
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container text-on-surface-variant'
+            }`}
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: showLoss ? 'var(--color-on-primary)' : 'var(--color-primary)',
+              }}
+              aria-hidden="true"
+            />
+            손실액
+          </button>
+          <button
+            type="button"
+            aria-pressed={showCount}
+            onClick={() => setShowCount((prev) => !prev)}
+            className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+              showCount
+                ? 'bg-tertiary-container text-on-tertiary'
+                : 'bg-surface-container text-on-surface-variant'
+            }`}
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: showCount
+                  ? 'var(--color-on-tertiary)'
+                  : 'var(--color-tertiary-container)',
+              }}
+              aria-hidden="true"
+            />
+            품목수
+          </button>
+        </div>
+      </div>
+      <WasteLineChart data={data} height={300} showLoss={showLoss} showCount={showCount} />
+    </>
   );
 }
 
