@@ -60,7 +60,7 @@ eat-me/
 1. `login` mutation → `AuthService.localLogin`: bcrypt 검증 후 access token(15분) + refresh token(일반 7일 / autologin 30일) 발급, `Session` 레코드 생성.
 2. 웹은 토큰을 `bt-token` 쿠키(httpOnly, JSON `{accessToken, refreshToken, expiresAt}`)에 저장 — `apps/web/src/lib/definitions.ts`의 `TOKEN_COOKIE`.
 3. Apollo SSR 클라이언트(`apps/web/src/app/ApolloClient.ts`)가 쿠키에서 accessToken을 읽어 `Authorization: Bearer` 헤더로 주입.
-4. `apps/web/src/middleware.ts`가 `/dashboard`, `/app` 경로에서 쿠키 부재 시 `/login` 리다이렉트.
+4. `apps/web/src/proxy.ts`(Next.js 16 Proxy, 구 middleware)가 `/dashboard`, `/app` 경로에서 쿠키 부재 시 `/login` 리다이렉트.
 5. Google OAuth는 `passport-google-oauth20` 전략 → `AuthService.oauthLogin`(없으면 user 자동 생성).
 
 ## 웹 라우트 (App Router 그룹)

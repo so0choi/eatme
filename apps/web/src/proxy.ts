@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TOKEN_COOKIE } from '@/lib/definitions';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const session = request.cookies.get(TOKEN_COOKIE);
 
   if (!session) {
