@@ -5,7 +5,20 @@ export const metadata = {
   description: '냉장고 식재료 관리와 레시피 추천을 시작하세요.',
 };
 
-export default function LoginPage() {
+const errorMessages: Record<string, string> = {
+  account_exists:
+    '이미 가입된 이메일입니다. 이메일과 비밀번호로 로그인해 주세요.',
+  oauth: '소셜 로그인에 실패했습니다. 다시 시도해 주세요.',
+};
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const notice = error ? errorMessages[error] ?? errorMessages.oauth : undefined;
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 pb-16 pt-12 sm:px-6 lg:flex-row lg:px-8 lg:pt-16">
       <section className="flex-1 rounded-3xl bg-linear-to-br from-emerald-500 via-teal-500 to-cyan-500 p-8 shadow-lg shadow-emerald-200/60">
@@ -40,7 +53,7 @@ export default function LoginPage() {
           </div>
         </div>
       </section>
-      <LoginForm />
+      <LoginForm notice={notice} />
     </main>
   );
 }

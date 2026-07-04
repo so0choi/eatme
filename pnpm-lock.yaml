@@ -122,6 +122,9 @@ importers:
       passport-local:
         specifier: ^1.0.0
         version: 1.0.0
+      passport-naver-v2:
+        specifier: ^2.0.8
+        version: 2.0.8
       prisma:
         specifier: ^7.3.0
         version: 7.4.2(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
@@ -171,6 +174,9 @@ importers:
       '@types/passport-google-oauth20':
         specifier: ^2.0.17
         version: 2.0.17
+      '@types/passport-oauth2':
+        specifier: ^1.8.0
+        version: 1.8.0
       '@types/supertest':
         specifier: ^6.0.3
         version: 6.0.3
@@ -6330,6 +6336,9 @@ packages:
   passport-local@1.0.0:
     resolution: {integrity: sha512-9wCE6qKznvf9mQYYbgJ3sVOHmCWoUNMVFoZzNoznmISbhnNNPhN9xfY3sLmScHMetEJeoY7CXwfhCe7argfQow==}
     engines: {node: '>= 0.4.0'}
+
+  passport-naver-v2@2.0.8:
+    resolution: {integrity: sha512-CA0u+aA4K4Zf5e3dSd47agOS69ULOdBGei7CZY2BN1cEbLnhnc6OalFPvnXLuEKT8I4IuGwvh3EBZCST2FoI+A==}
 
   passport-oauth2@1.8.0:
     resolution: {integrity: sha512-cjsQbOrXIDE4P8nNb3FQRCCmJJ/utnFKEz2NX209f7KOHPoX18gF7gBzBbLLsj2/je4KrgiwLLGjf0lm9rtTBA==}
@@ -14775,6 +14784,10 @@ snapshots:
   passport-local@1.0.0:
     dependencies:
       passport-strategy: 1.0.0
+
+  passport-naver-v2@2.0.8:
+    dependencies:
+      passport-oauth2: 1.8.0
 
   passport-oauth2@1.8.0:
     dependencies:

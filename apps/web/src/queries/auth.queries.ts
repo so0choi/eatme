@@ -24,3 +24,25 @@ export const LOGOUT_MUTATION = gql`
     logout
   }
 `;
+
+export const EXCHANGE_OAUTH_CODE_MUTATION = gql`
+  mutation ExchangeOAuthCode($code: String!) {
+    exchangeOAuthCode(code: $code) {
+      accessToken
+      refreshToken
+      expiresIn
+      refreshExpiresIn
+    }
+  }
+`;
+
+export const LINK_SOCIAL_ACCOUNT_MUTATION = gql`
+  mutation LinkSocialAccount($ticket: String!, $password: String!) {
+    linkSocialAccount(ticket: $ticket, password: $password) {
+      accessToken
+      refreshToken
+      expiresIn
+      refreshExpiresIn
+    }
+  }
+`;

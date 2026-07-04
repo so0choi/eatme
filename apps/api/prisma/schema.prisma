@@ -20,11 +20,12 @@ model User {
   name      String
   password  String
   provider  String   @default("local")
+  // 이 계정으로 로그인 가능한 인증수단 목록(local/google/naver). 소셜 계정 연동 시 추가된다.
+  providers String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
   reviews Review[]
   sessions Session[]
-  preferenceTags String[]
   phone   String?
   ingredients Ingredient[]
   ingredientDisposals IngredientDisposal[]

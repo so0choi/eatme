@@ -8,6 +8,10 @@ import { AuthResolver } from './auth.resolver';
 
 import { ACCESS_TOKEN_EXPIRES_IN, AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { NaverStrategy } from './strategies/naver.strategy';
+import { OAuthCodeStore } from './oauth-code.store';
+import { SocialLinkStore } from './social-link.store';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 config();
@@ -16,6 +20,7 @@ config();
   imports: [
     UsersModule,
     PassportModule,
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -26,6 +31,14 @@ config();
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthResolver],
+  providers: [
+    AuthService,
+    AuthResolver,
+    JwtStrategy,
+    GoogleStrategy,
+    NaverStrategy,
+    OAuthCodeStore,
+    SocialLinkStore,
+  ],
 })
 export class AuthModule {}

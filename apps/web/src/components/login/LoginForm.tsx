@@ -6,12 +6,19 @@ import { login } from './actions/login';
 import { useActionState } from 'react';
 import { Button } from '@/components/ui/Button';
 
-const LoginForm = () => {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+
+const LoginForm = ({ notice }: { notice?: string }) => {
   const [state, action, pending] = useActionState(login, undefined);
 
   return (
     <section className="flex-1 rounded-3xl border border-slate-200 bg-white p-8 shadow-md">
       <h2 className="text-2xl font-semibold text-slate-900">계정 로그인</h2>
+      {notice && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {notice}
+        </p>
+      )}
       <p className="mt-2 text-sm text-slate-500">
         아직 계정이 없다면{' '}
         <Link
@@ -80,13 +87,21 @@ const LoginForm = () => {
           <span>또는</span>
           <div className="h-px flex-1 bg-slate-200" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Button type="button" variant="outline">
-            카카오로 시작하기
-          </Button>
-          <Button type="button" variant="outline">
-            Apple로 시작하기
-          </Button>
+        <div className="grid gap-3">
+          <a
+            href={`${API_BASE_URL}/auth/naver`}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#03C75A] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            <span className="font-bold">N</span>
+            네이버로 시작하기
+          </a>
+          <a
+            href={`${API_BASE_URL}/auth/google`}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <span className="font-bold text-[#4285F4]">G</span>
+            Google로 시작하기
+          </a>
         </div>
       </div>
     </section>
