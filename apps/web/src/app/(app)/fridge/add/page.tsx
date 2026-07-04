@@ -1,6 +1,5 @@
 import dayjs from 'dayjs';
 import {
-  Camera,
   Info,
   Leaf,
   Package,
@@ -13,6 +12,7 @@ import {
 import { getClient } from '@/app/ApolloClient';
 import { GET_ALL_INGREDIENTS } from '@/queries/fridge.queries';
 import FridgeForm from '@/components/fridge/FridgeForm';
+import QuickAddForm from '@/components/fridge/QuickAddForm';
 import { addIngredient } from '@/components/fridge/actions/add-ingredient';
 import { Ingredient, IngredientStatus, StorageType } from 'gql/graphql';
 
@@ -105,7 +105,7 @@ export default async function AddIngredientPage() {
   });
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="mx-auto max-w-5xl space-y-8">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-1">
           냉장고
@@ -118,29 +118,25 @@ export default async function AddIngredientPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 rounded-3xl bg-surface-container-lowest p-8 shadow-ambient">
-          <FridgeForm action={addIngredient} />
-        </div>
+      {/* 데스크톱 2컬럼: 폼(좌) / 정보(우), 모바일 스택 */}
+      <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+        <div className="space-y-6 rounded-3xl bg-surface-container-lowest p-5 shadow-ambient sm:p-8 lg:col-span-7">
+          <QuickAddForm />
 
-        <div className="lg:col-span-5 space-y-5">
-          <div className="rounded-3xl bg-linear-to-br from-primary to-primary-container p-8 shadow-ambient">
-            <h3 className="font-display text-2xl font-bold text-on-primary mb-2">
-              스캔 &amp; 자동 입력
-            </h3>
-            <p className="text-on-primary/80 text-sm mb-6 leading-relaxed">
-              AI가 영수증에서 식재료, 수량, 유통기한을 자동으로 인식합니다.
-            </p>
-            <button
-              type="button"
-              className="w-full py-3 rounded-2xl bg-on-primary/10 text-on-primary font-semibold hover:bg-on-primary hover:text-primary transition-all flex items-center justify-center gap-2"
-            >
-              <Camera className="h-5 w-5" />
-              스캐너 시작
-            </button>
+        {/* 상세 입력은 접이식으로 보존 (수정 화면과 동일한 전체 폼) */}
+        <details className="group rounded-2xl bg-surface-container-low px-5 py-4">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-on-surface-variant transition-colors hover:text-primary">
+            직접 하나씩 입력할래요 (상세 입력)
+          </summary>
+          <div className="pt-6">
+            <FridgeForm action={addIngredient} />
           </div>
+        </details>
+      </div>
 
-          <div className="rounded-3xl bg-surface-container-lowest p-6 shadow-ambient">
+        {/* 정보 컬럼 (데스크톱 우측 / 모바일 하단) */}
+        <div className="space-y-5 lg:col-span-5">
+          <div className="rounded-3xl bg-surface-container-lowest p-5 shadow-ambient sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-lg font-bold text-on-surface">재고 현황</h3>
               <Info className="h-4 w-4 text-on-surface-variant/40" />
@@ -177,7 +173,7 @@ export default async function AddIngredientPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl bg-surface-container-low p-6">
+          <div className="rounded-3xl bg-surface-container-low p-5 sm:p-6">
             <h4 className="text-xs font-semibold uppercase tracking-[0.05rem] text-primary mb-5">
               보관 분포
             </h4>

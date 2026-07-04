@@ -167,3 +167,43 @@ export function getRecommendedUseBy(name: string, storage: StorageZone) {
     useBy: addDaysFromToday(shelfLife.days),
   };
 }
+
+// IngredientCategory enum 값과 동일한 문자열 유니온 (gql 결합 없이 사용)
+export type IngredientCategoryValue =
+  | 'MEAT'
+  | 'SEAFOOD'
+  | 'VEGETABLE'
+  | 'FRUIT'
+  | 'DAIRY'
+  | 'EGG'
+  | 'GRAIN'
+  | 'SAUCE'
+  | 'DRINK'
+  | 'SNACK'
+  | 'ETC';
+
+// shelf-life 규칙 id → 카테고리. 알려진 품목만 자동 분류하고 나머지는 사용자 선택.
+const RULE_CATEGORY: Record<string, IngredientCategoryValue> = {
+  egg: 'EGG',
+  milk: 'DAIRY',
+  tofu: 'ETC',
+  'green-onion': 'VEGETABLE',
+  'leafy-greens': 'VEGETABLE',
+  onion: 'VEGETABLE',
+  potato: 'VEGETABLE',
+  carrot: 'VEGETABLE',
+  mushroom: 'VEGETABLE',
+  apple: 'FRUIT',
+  banana: 'FRUIT',
+  chicken: 'MEAT',
+  pork: 'MEAT',
+  beef: 'MEAT',
+  fish: 'SEAFOOD',
+  'cooked-food': 'ETC',
+};
+
+// 품목명으로 카테고리 자동 추정 (규칙 매칭 실패 시 null)
+export function getCategory(name: string): IngredientCategoryValue | null {
+  const rule = findShelfLifeRule(name);
+  return rule ? (RULE_CATEGORY[rule.id] ?? null) : null;
+}
