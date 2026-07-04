@@ -7,11 +7,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
-// 랜딩(비로그인): 한 페이지 내 섹션 앵커
+// 랜딩(비로그인): 마케팅 페이지(/welcome) 내 섹션 앵커
 const landingNav = [
-  { name: '홈', href: '/' },
-  { name: '냉장고', href: '/#fridge' },
-  { name: '레시피', href: '/#recipes' },
+  { name: '홈', href: '/welcome' },
+  { name: '레시피', href: '/welcome#recipes' },
+  { name: '꿀팁', href: '/welcome#community' },
 ];
 
 // 앱(로그인): 실제 라우트 — 전역 네비게이션 역할
@@ -42,7 +42,7 @@ const Navigation: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
         <>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-2">
-              <Link href="/">
+              <Link href={isLoggedIn ? '/dashboard' : '/welcome'}>
                 <div className="flex items-center gap-4">
                   <Image
                     alt="logo"
@@ -119,13 +119,23 @@ const Navigation: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
                   </Disclosure.Button>
                 );
               })}
-              <Disclosure.Button
-                as={Link}
-                href="/login"
-                className="block rounded-xl bg-primary px-3 py-2 text-center font-semibold text-on-primary mt-2"
-              >
-                로그인
-              </Disclosure.Button>
+              {!isLoggedIn ? (
+                <Disclosure.Button
+                  as={Link}
+                  href="/login"
+                  className="block rounded-xl bg-primary px-3 py-2 text-center font-semibold text-on-primary mt-2"
+                >
+                  로그인
+                </Disclosure.Button>
+              ) : (
+                <Disclosure.Button
+                  as="button"
+                  onClick={logout}
+                  className="block w-full rounded-xl bg-primary px-3 py-2 text-center font-semibold text-on-primary mt-2"
+                >
+                  로그아웃
+                </Disclosure.Button>
+              )}
             </div>
           </Disclosure.Panel>
         </>
