@@ -4,17 +4,21 @@ export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = {
+  [_ in K]?: never;
+};
+export type Incremental<T> =
+  | T
+  | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: { input: string; output: string; }
-  String: { input: string; output: string; }
-  Boolean: { input: boolean; output: boolean; }
-  Int: { input: number; output: number; }
-  Float: { input: number; output: number; }
+  ID: { input: string; output: string };
+  String: { input: string; output: string };
+  Boolean: { input: boolean; output: boolean };
+  Int: { input: number; output: number };
+  Float: { input: number; output: number };
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  DateTime: { input: any; output: any; }
+  DateTime: { input: any; output: any };
 };
 
 export type Comment = {
@@ -66,7 +70,6 @@ export type CreateUserInput = {
   name: Scalars['String']['input'];
   password: Scalars['String']['input'];
   phone?: InputMaybe<Scalars['String']['input']>;
-  preferenceTags?: InputMaybe<Array<Scalars['String']['input']>>;
   provider?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -97,7 +100,7 @@ export enum IngredientCategory {
   Sauce = 'SAUCE',
   Seafood = 'SEAFOOD',
   Snack = 'SNACK',
-  Vegetable = 'VEGETABLE'
+  Vegetable = 'VEGETABLE',
 }
 
 export type IngredientItem = {
@@ -112,7 +115,7 @@ export enum IngredientStatus {
   Expired = 'EXPIRED',
   ExpiringSoon = 'EXPIRING_SOON',
   Fresh = 'FRESH',
-  Used = 'USED'
+  Used = 'USED',
 }
 
 export enum IngredientUnit {
@@ -122,7 +125,7 @@ export enum IngredientUnit {
   Kg = 'KG',
   L = 'L',
   Ml = 'ML',
-  Pack = 'PACK'
+  Pack = 'PACK',
 }
 
 export type LoginDto = {
@@ -154,51 +157,41 @@ export type Mutation = {
   updateRecipe: Recipe;
 };
 
-
 export type MutationCreateIngredientArgs = {
   input: CreateIngredientInput;
 };
-
 
 export type MutationCreateRecipeArgs = {
   input: CreateRecipeInput;
 };
 
-
 export type MutationCreateReviewArgs = {
   createReviewInput: CreateReviewInput;
 };
-
 
 export type MutationDeleteIngredientArgs = {
   id: Scalars['Int']['input'];
 };
 
-
 export type MutationDeleteRecipeArgs = {
   id: Scalars['Int']['input'];
 };
-
 
 export type MutationEditProfileArgs = {
   data: UpdateDto;
 };
 
-
 export type MutationLoginArgs = {
   input: LoginDto;
 };
-
 
 export type MutationSignupArgs = {
   createUserInput: CreateUserInput;
 };
 
-
 export type MutationUpdateIngredientArgs = {
   input: UpdateIngredientInput;
 };
-
 
 export type MutationUpdateRecipeArgs = {
   input: UpdateRecipeInput;
@@ -214,11 +207,9 @@ export type Query = {
   recipe: Recipe;
 };
 
-
 export type QueryIngredientArgs = {
   id: Scalars['Int']['input'];
 };
-
 
 export type QueryRecipeArgs = {
   id: Scalars['Int']['input'];
@@ -243,7 +234,7 @@ export type Recipe = {
 export enum RecipeDifficulty {
   Easy = 'EASY',
   Hard = 'HARD',
-  Medium = 'MEDIUM'
+  Medium = 'MEDIUM',
 }
 
 export type RecipeIngredient = {
@@ -275,7 +266,7 @@ export type Review = {
 export enum StorageType {
   Freezer = 'FREEZER',
   Fridge = 'FRIDGE',
-  Pantry = 'PANTRY'
+  Pantry = 'PANTRY',
 }
 
 export type UpdateDto = {

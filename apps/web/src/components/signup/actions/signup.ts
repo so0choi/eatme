@@ -19,7 +19,6 @@ const schema = z
     confirmPassword: z.string(),
     phone: z.string().optional(),
     name: z.string(),
-    preferenceTags: z.array(z.string()).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: '비밀번호가 일치하지 않습니다.',
@@ -42,7 +41,6 @@ export async function signUp(_: any, formData: FormData) {
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
     phone: formData.get('phone'),
-    preferenceTags: formData.getAll('preferenceTags'),
   };
 
   const validatedFields = schema.safeParse(rawFormData);
@@ -56,13 +54,12 @@ export async function signUp(_: any, formData: FormData) {
     };
   }
 
-  const { name, email, password, phone, preferenceTags } = validatedFields.data;
+  const { name, email, password, phone } = validatedFields.data;
   const input = {
     name,
     email,
     password,
     phone,
-    preferenceTags,
     provider: 'local',
   };
 
