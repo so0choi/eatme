@@ -29,3 +29,9 @@ packages/*/dist/
 
 # Personal scratch directory (not tracked)
 /jayhoon/
+
+# Chrome extension (local tooling, not part of the app)
+apps/extension/
+
+# Lazyweb skill mockups (local artifacts)
+.lazyweb/
