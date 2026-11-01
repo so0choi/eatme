@@ -60,8 +60,11 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
-  async logout(@CurrentUser() user: { id: number }): Promise<boolean> {
-    await this.authService.logout(user.id);
+  async logout(
+    @CurrentUser() user: { id: number },
+    @Args('refreshToken') refreshToken: string,
+  ): Promise<boolean> {
+    await this.authService.logout(user.id, refreshToken);
     return true;
   }
 }

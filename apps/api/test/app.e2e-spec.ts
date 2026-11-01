@@ -58,7 +58,12 @@ describe('GraphQL API (e2e)', () => {
 
     it('logout 은 세션을 삭제한다', async () => {
       const token = await signupAndLogin();
-      const res = await gql(`mutation { logout }`, undefined, token);
+      const { refreshToken } = ctx.prisma.session.rows[0];
+      const res = await gql(
+        `mutation($refreshToken: String!) { logout(refreshToken: $refreshToken) }`,
+        { refreshToken },
+        token,
+      );
       expect(res.data.logout).toBe(true);
       expect(ctx.prisma.session.rows).toHaveLength(0);
     });

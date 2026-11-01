@@ -279,7 +279,10 @@ export class AuthService {
     );
   }
 
-  async logout(userId: number): Promise<void> {
-    await this.prismaService.session.deleteMany({ where: { userId } });
+  // 기기(세션) 단위 로그아웃: 해당 유저의 그 refresh token 세션만 삭제한다.
+  async logout(userId: number, refreshToken: string): Promise<void> {
+    await this.prismaService.session.deleteMany({
+      where: { userId, refreshToken },
+    });
   }
 }

@@ -199,4 +199,60 @@ describe('Auth session (e2e)', () => {
     expect(ctx.prisma.session.rows).toHaveLength(1);
     expect(ctx.prisma.session.rows[0].platform).toBe('ios');
   });
+  describe('logout (기기 단위)', () => {
+    const LOGOUT = `mutation($refreshToken: String!) { logout(refreshToken: $refreshToken) }`;
+
+    async function loginAgain(input: Record<string, unknown>) {
+      const res = await ctx.gql(LOGIN, {
+        input: { email: 'cook@eatme.test', password: 'password123', ...input },
+      });
+      expect(res.errors).toBeUndefined();
+      return res.data.login as { accessToken: string; refreshToken: string };
+    }
+
+    it('해당 기기(세션)만 삭제하고 다른 기기 세션은 유지한다', async () => {
+      const web = await signupAndLoginFull({ platform: 'web' });
+      const ios = await loginAgain({ platform: 'ios' });
+      expect(ctx.prisma.session.rows).toHaveLength(2);
+
+      const res = await ctx.gql(
+        LOGOUT,
+        { refreshToken: ios.refreshToken },
+        ios.accessToken,
+      );
+      expect(res.errors).toBeUndefined();
+      expect(res.data.logout).toBe(true);
+      expect(ctx.prisma.session.rows).toHaveLength(1);
+      expect(ctx.prisma.session.rows[0].refreshToken).toBe(web.refreshToken);
+      expect(ctx.prisma.session.rows[0].platform).toBe('web');
+    });
+
+    it('타인의 refresh token으로는 아무 세션도 삭제하지 않는다', async () => {
+      const mine = await signupAndLoginFull({ platform: 'web' });
+      const other = await ctx.prisma.user.create({
+        data: {
+          email: 'other@eatme.test',
+          password: 'x',
+          name: '타인',
+          provider: 'local',
+        },
+      });
+      await ctx.prisma.session.create({
+        data: {
+          userId: other.id,
+          refreshToken: 'other-refresh-token',
+          expiresAt: new Date(Date.now() + 100000),
+          platform: 'ios',
+        },
+      });
+
+      const res = await ctx.gql(
+        LOGOUT,
+        { refreshToken: 'other-refresh-token' },
+        mine.accessToken,
+      );
+      expect(res.errors).toBeUndefined();
+      expect(ctx.prisma.session.rows).toHaveLength(2);
+    });
+  });
 });
