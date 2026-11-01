@@ -103,7 +103,10 @@ eat-me/
 - 소셜 계정 연동은 **로그인 중 충돌 시 비밀번호 확인(JIT)** 방식만 지원. 순수 소셜 계정끼리 충돌(비밀번호 없음)은 연동 불가로 안내만 함. 로그인 후 설정 페이지에서 연동하는 플로우는 미구현.
 - `SocialLinkStore`의 연동 티켓은 providerId를 저장하지 않음(`providers` 배열은 provider 이름만 보관) → 특정 소셜 계정 식별/해제(unlink)는 후속 과제.
 - `OAuthCodeStore` / `SocialLinkStore`는 프로세스 메모리 기반 → api 다중 인스턴스 배포 시 Redis 등 공유 저장소로 교체 필요.
-- OAuth `state`는 서명된 JWT(`OAuthStateService`, `JWT_SECRET`, 5분, `typ: 'oauth_state'`, `{ client, nonce }`)로 보내고 콜백에서 검증한다(OAuth CSRF 방어). 검증 실패 시 웹 `/login?error=invalid_state`. `?client=mobile`로 시작하면 콜백이 `${MOBILE_REDIRECT_URI ?? 'eatme://'}auth/callback?code=…`(연동 필요 시 `…link?ticket=…&provider=…`) 딥링크로 리다이렉트. 단, state는 브라우저 세션에 바인딩되지 않음(서명·만료만 검증) — 5분 내 재사용 방지는 미구현.
+- **OAuth state / login-CSRF (구현됨)**: authorize 진입 시 `state`는 서명된 JWT(`OAuthStateService`, `JWT_SECRET`, 5분 만료, `typ: 'oauth_state'`, `{ client, nonceHash, codeChallenge? }`)이고, nonce 원문은 API 오리진의 `oauth_nonce` 쿠키(httpOnly, SameSite=Lax, https면 Secure, `Path=/auth`, Max-Age=300)에만 있다. 콜백 가드(`guards/oauth-callback.guard.ts`)가 **passport보다 먼저** 서명·만료·nonce 쿠키 일치를 검증 → 즉 state는 **로그인을 시작한 브라우저에 바인딩**된다. 쿠키는 콜백 응답에서 삭제(일회용). 실패 시 웹 `/login?error=invalid_state`. 제공자 오류(`?error=access_denied` 등)·passport 실패도 예외 대신 오류 리다이렉트(state가 유효한 mobile이면 앱 딥링크 `…auth/callback?error=…`).
+- **모바일 PKCE (구현됨)**: `GET /auth/{provider}?client=mobile&code_challenge=<base64url S256>` 필수(없으면 `eatme://auth/callback?error=pkce_required`). challenge는 state에 실리고, 콜백이 발급한 일회용 code와 함께 `OAuthCodeStore`에 저장 → `exchangeOAuthCode(code, codeVerifier)`가 S256 일치를 요구(불일치/누락 → UNAUTHENTICATED, code는 시도 즉시 폐기). 성공 시 `${MOBILE_REDIRECT_URI ?? 'eatme://'}auth/callback?code=…`(연동 필요 시 `…link?ticket=…&provider=…`). 웹 code(challenge 없음)는 verifier 없이 교환.
+- **TODO — 웹 오리진 hop 미바인딩**: api → 웹 `GET /auth/{provider}/callback?code=…`(`apps/web/src/app/auth/[provider]/callback/route.ts`)는 일회용 code를 아무 바인딩 없이 교환한다. 공격자가 자기 code(60초 유효)를 피해자에게 전달하면 피해자 웹 세션이 공격자 계정으로 로그인될 수 있음 → 웹 쪽에도 PKCE/nonce 쿠키(웹 오리진) 바인딩 필요.
+- 동시에 여러 탭에서 소셜 로그인을 시작하면 `oauth_nonce` 쿠키가 마지막 시작 건으로 덮여 먼저 시작한 탭은 `invalid_state`가 된다(의도된 한계).
 
 ## 웹 라우트 (App Router 그룹)
 

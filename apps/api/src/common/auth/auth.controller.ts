@@ -4,21 +4,24 @@ import {
   Query,
   Redirect,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService, OAuthUser } from './auth.service';
 import { OAuthCodeStore } from './oauth-code.store';
 import { SocialLinkStore } from './social-link.store';
 import { GoogleOauthGuard } from './guards/google-oauth.guard';
 import { NaverOauthGuard } from './guards/naver-oauth.guard';
+import { getOAuthCallbackContext } from './guards/oauth-callback.guard';
 import { Public } from '@common/decorators/setMetadata';
 import {
   buildPostLoginRedirect,
-  OAuthClient,
+  OAuthStateClaims,
   OAuthStateService,
   PostLoginOutcome,
+  PostLoginRedirectBases,
 } from './oauth-state';
 import { OAuthEntryQueryDto } from './dtos/oauth-entry.dto';
 
@@ -42,38 +45,40 @@ export class AuthController {
   // passport의 authorize 리다이렉트는 res.setHeader/res.end(Express 스타일)에 의존하는데
   // FastifyReply엔 해당 메서드가 없어 동작하지 않는다. 따라서 진입 단계는 passport 가드 대신
   // authorize URL을 직접 만들어 리다이렉트한다. (콜백은 passport 가드가 처리)
+  // nonce 쿠키는 @Res({ passthrough: true })로 헤더만 붙이고, 응답은 @Redirect가 보낸다.
   @Public()
   @Get('google')
   @Redirect()
-  googleAuth(@Query() query: OAuthEntryQueryDto): RedirectResult {
-    return {
-      url: this.buildAuthorizeUrl('google', query.client),
-      statusCode: 302,
-    };
+  googleAuth(
+    @Query() query: OAuthEntryQueryDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): RedirectResult {
+    return this.startOAuth('google', query, reply);
   }
 
   @Public()
   @Get('naver')
   @Redirect()
-  naverAuth(@Query() query: OAuthEntryQueryDto): RedirectResult {
-    return {
-      url: this.buildAuthorizeUrl('naver', query.client),
-      statusCode: 302,
-    };
+  naverAuth(
+    @Query() query: OAuthEntryQueryDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): RedirectResult {
+    return this.startOAuth('naver', query, reply);
   }
 
-  // --- 콜백 (token 교환 + 프로필 검증: passport가 res 메서드 없이 처리 가능) ---
-  // 전략은 state store 없이 생성되므로 passport-oauth2는 NullStore를 써서 state를 검사하지 않는다.
-  // state 검증은 핸들러에서 OAuthStateService로 직접 한다.
+  // --- 콜백 ---
+  // 가드(createOAuthCallbackGuard)가 passport보다 먼저 state + nonce 쿠키를 검증하고, 제공자 오류·
+  // passport 실패도 예외 대신 판정 결과로 남긴다. 전략은 state store 없이 생성되므로
+  // passport-oauth2 자체는 NullStore를 써서 state를 검사하지 않는다.
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleOauthGuard)
   @Redirect()
   async googleCallback(
     @Req() req: FastifyRequest,
-    @Query('state') state?: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<RedirectResult> {
-    return this.handleCallback('google', req, state);
+    return this.handleCallback('google', req, reply);
   }
 
   @Public()
@@ -82,21 +87,39 @@ export class AuthController {
   @Redirect()
   async naverCallback(
     @Req() req: FastifyRequest,
-    @Query('state') state?: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<RedirectResult> {
-    return this.handleCallback('naver', req, state);
+    return this.handleCallback('naver', req, reply);
+  }
+
+  private startOAuth(
+    provider: OAuthProvider,
+    query: OAuthEntryQueryDto,
+    reply: FastifyReply,
+  ): RedirectResult {
+    // 모바일은 PKCE 필수: challenge 없이 시작하면 앱 딥링크로 오류를 돌려준다.
+    if (query.client === 'mobile' && !query.code_challenge) {
+      return this.redirect(
+        buildPostLoginRedirect(
+          { kind: 'error', error: 'pkce_required' },
+          'mobile',
+          this.redirectBases(),
+        ),
+      );
+    }
+    const { state, nonce } = this.stateService.sign(
+      query.client,
+      query.client === 'mobile' ? query.code_challenge : undefined,
+    );
+    reply.header('set-cookie', this.stateService.nonceCookie(nonce));
+    return this.redirect(this.buildAuthorizeUrl(provider, state));
   }
 
   /** 각 제공자의 authorize URL을 구성한다. redirect_uri는 콜백 전략의 callbackURL과 일치해야 한다. */
-  private buildAuthorizeUrl(
-    provider: OAuthProvider,
-    client: OAuthClient,
-  ): string {
+  private buildAuthorizeUrl(provider: OAuthProvider, state: string): string {
     const apiBaseUrl =
       this.config.get<string>('API_BASE_URL') ?? 'http://localhost:4000';
     const redirectUri = `${apiBaseUrl}/auth/${provider}/callback`;
-    // 서명된 state(JWT, 5분): 콜백에서 검증해 OAuth CSRF를 막고, 시작한 client를 전달한다.
-    const state = this.stateService.sign(client);
 
     if (provider === 'naver') {
       const params = new URLSearchParams({
@@ -120,41 +143,43 @@ export class AuthController {
   }
 
   /**
-   * 소셜 인증 성공 후: 토큰을 발급하고, 토큰을 URL에 노출하지 않도록
+   * 소셜 인증 후: 토큰을 발급하고, 토큰을 URL에 노출하지 않도록
    * 일회용 code만 클라이언트(웹 콜백 / 앱 딥링크)로 전달한다. 클라이언트가 code를 교환한다.
    */
   private async handleCallback(
     provider: string,
     req: FastifyRequest,
-    state: string | undefined,
+    reply: FastifyReply,
   ): Promise<RedirectResult> {
-    const bases = {
-      webBaseUrl:
-        this.config.get<string>('WEB_BASE_URL') ?? 'http://localhost:3000',
-      mobileRedirectUri: this.config.get<string>('MOBILE_REDIRECT_URI'),
-    };
+    // nonce 쿠키는 일회용: 결과와 무관하게 콜백 응답에서 지운다.
+    reply.header('set-cookie', this.stateService.clearNonceCookie());
+    const bases = this.redirectBases();
 
-    // state가 없거나 위조/만료면 시작한 client를 알 수 없으므로 웹 로그인으로 보낸다.
-    const verified = this.stateService.verify(state);
-    if (!verified) {
+    const ctx = getOAuthCallbackContext(req) ?? {
+      kind: 'error' as const,
+      client: 'web' as const,
+      error: 'invalid_state',
+    };
+    if (ctx.kind === 'error') {
       return this.redirect(
         buildPostLoginRedirect(
-          { kind: 'error', error: 'invalid_state' },
-          'web',
+          { kind: 'error', error: ctx.error },
+          ctx.client,
           bases,
         ),
       );
     }
 
-    const outcome = await this.resolveOutcome(provider, req);
+    const outcome = await this.resolveOutcome(provider, req, ctx.state);
     return this.redirect(
-      buildPostLoginRedirect(outcome, verified.client, bases),
+      buildPostLoginRedirect(outcome, ctx.state.client, bases),
     );
   }
 
   private async resolveOutcome(
     provider: string,
     req: FastifyRequest,
+    state: OAuthStateClaims,
   ): Promise<PostLoginOutcome> {
     const oauthUser = (req as unknown as { user?: OAuthUser }).user;
     if (!oauthUser?.email) {
@@ -182,11 +207,19 @@ export class AuthController {
       return { kind: 'link_required', provider: result.provider, ticket };
     }
 
-    // 인증 완료: 토큰을 일회용 code로 감싸 전달.
+    // 인증 완료: 토큰을 일회용 code로 감싸 전달. 모바일은 PKCE challenge를 함께 보관한다.
     return {
       kind: 'authenticated',
       provider,
-      code: this.codeStore.issue(result.token),
+      code: this.codeStore.issue(result.token, state.codeChallenge),
+    };
+  }
+
+  private redirectBases(): PostLoginRedirectBases {
+    return {
+      webBaseUrl:
+        this.config.get<string>('WEB_BASE_URL') ?? 'http://localhost:3000',
+      mobileRedirectUri: this.config.get<string>('MOBILE_REDIRECT_URI'),
     };
   }
 

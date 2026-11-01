@@ -33,8 +33,13 @@ export class AuthResolver {
   // OAuth 콜백이 발급한 일회용 code를 실제 토큰으로 교환한다.
   @Public()
   @Mutation(() => LoginToken)
-  async exchangeOAuthCode(@Args('code') code: string): Promise<LoginToken> {
-    const token = this.codeStore.consume(code);
+  async exchangeOAuthCode(
+    @Args('code') code: string,
+    // 모바일(PKCE) code는 authorize 진입 시 보낸 code_challenge에 대응하는 verifier가 필요하다.
+    @Args('codeVerifier', { type: () => String, nullable: true })
+    codeVerifier?: string | null,
+  ): Promise<LoginToken> {
+    const token = this.codeStore.consume(code, codeVerifier ?? undefined);
     if (!token) {
       throw new UnauthorizedException('INVALID_OAUTH_CODE');
     }
