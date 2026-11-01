@@ -97,6 +97,12 @@ eat-me/
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google Cloud Console OAuth 2.0 클라이언트, 리디렉션 URI `http://localhost:4000/auth/google/callback`
 - `API_BASE_URL` / `WEB_BASE_URL` — 배포 시 도메인에 맞게 변경(콜백 URL·리다이렉트 대상에 사용)
 
+**Rate-limit 설정** (`apps/api/.dev.env`, 인증 mutation에만 적용: login/signup/refreshToken/appleLogin/linkSocialAccount):
+
+- `AUTH_THROTTLE_LIMIT`(기본 10) / `AUTH_THROTTLE_TTL_MS`(기본 60000) — IP당 윈도우 내 허용 횟수. 잘못된 값은 기본값으로 대체.
+- `TRUST_PROXY` — 리버스 프록시 뒤에 배포할 때 필수. `true` / 홉 수(예: `1`) / 쉼표 구분 IP·CIDR. 기본 off이며, 미설정 시 프록시 뒤에서는 모든 사용자가 프록시 IP 하나로 집계되어 한 버킷을 공유한다.
+- 쓰로틀러 저장소는 in-memory(단일 인스턴스 전용). 다중 인스턴스 배포 시 Redis 등 공유 저장소로 교체 필요.
+
 **알려진 한계 / TODO**:
 
 - 네이버는 이메일이 선택 동의라 없을 수 있음 → 현재 `naver_{id}@oauth.local` placeholder 이메일로 대체(계정 식별 정책 재검토 필요).

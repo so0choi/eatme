@@ -1,6 +1,7 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { clientKey } from './client-key';
 
 /**
  * GraphQL 컨텍스트용 ThrottlerGuard. 전역이 아니라 인증 mutation에만 `@UseGuards`로 건다.
@@ -17,6 +18,6 @@ export class GqlThrottlerGuard extends ThrottlerGuard {
   }
 
   protected getTracker(req: Record<string, any>): Promise<string> {
-    return Promise.resolve(req.ip ?? req.ips?.[0] ?? 'unknown');
+    return Promise.resolve(clientKey(req));
   }
 }

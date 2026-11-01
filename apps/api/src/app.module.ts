@@ -9,6 +9,7 @@ import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { GqlAuthGuard } from '@common/auth/guards/gql.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { positiveNumber } from '@common/guards/client-key';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from '@modules/app-config/app-config.module';
 import { RequestLoggingInterceptor } from '@common/interceptors/request-logging.interceptor';
@@ -35,8 +36,8 @@ import { YoutubeModule } from '@modules/youtube/youtube.module';
       useFactory: (config: ConfigService) => ({
         throttlers: [
           {
-            ttl: Number(config.get('AUTH_THROTTLE_TTL_MS') ?? 60_000),
-            limit: Number(config.get('AUTH_THROTTLE_LIMIT') ?? 10),
+            ttl: positiveNumber(config.get('AUTH_THROTTLE_TTL_MS'), 60_000),
+            limit: positiveNumber(config.get('AUTH_THROTTLE_LIMIT'), 10),
           },
         ],
         setHeaders: false,
