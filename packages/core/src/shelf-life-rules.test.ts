@@ -79,3 +79,19 @@ describe('shelfLifeRules 확장', () => {
     expect(getCategory('요거트')).toBe('DAIRY');
   });
 });
+
+describe('조리 음식 우선 판별', () => {
+  it('요리 이름은 재료 규칙이 아니라 cooked-food로 분류한다', () => {
+    for (const name of ['된장찌개', '미역국', '김치볶음밥', '고추장찌개', '밥', '떡국']) {
+      expect(findShelfLifeRule(name)?.id, name).toBe('cooked-food');
+    }
+    expect(getShelfLifeDays('된장찌개', 'FRIDGE')?.days).toBe(3);
+  });
+
+  it('국/밥으로 시작·포함하는 재료는 가리지 않는다', () => {
+    expect(findShelfLifeRule('쌀국수')?.id).toBe('noodles');
+    expect(findShelfLifeRule('국수')?.id).toBe('noodles');
+    expect(findShelfLifeRule('쌀')?.id).toBe('rice');
+    expect(findShelfLifeRule('밥솥')).toBeNull();
+  });
+});

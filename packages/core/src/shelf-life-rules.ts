@@ -662,7 +662,7 @@ export const shelfLifeRules: ShelfLifeRule[] = [
   {
     id: 'cooked-food',
     label: '밥/반찬/조리음식',
-    aliases: ['밥', '반찬', '조리음식', '볶음밥', '국', '찌개'],
+    aliases: ['반찬', '조리음식', '볶음밥', '찌개'],
     storageDays: { FRIDGE: 3, FREEZER: 30 },
     recommendedStorage: 'FRIDGE',
   },
@@ -672,9 +672,17 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/\s/g, '');
 }
 
+// 조리 음식 이름(된장찌개, 미역국, 김치볶음밥 …)은 재료 규칙보다 먼저 판별한다.
+// '국'/'밥'은 끝에 올 때만 요리로 본다 (국수·쌀·밥솥 같은 재료/물품과 구분).
+const COOKED_FOOD_PATTERN = /찌개|볶음밥|국밥|덮밥|비빔밥|반찬|조리음식|(국|밥)$/;
+
 export function findShelfLifeRule(name: string) {
   const normalizedName = normalize(name);
   if (!normalizedName) return null;
+
+  if (COOKED_FOOD_PATTERN.test(normalizedName)) {
+    return shelfLifeRules.find((rule) => rule.id === 'cooked-food') ?? null;
+  }
 
   return (
     shelfLifeRules.find((rule) =>

@@ -7,11 +7,6 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/\s/g, '');
 }
 
-/**
- * 냉장고 재료로 "만들 수 있는" 레시피를 추린다.
- * 필수 재료(optional=false)가 모두 냉장고에 있으면 만들 수 있는 것으로 본다.
- * 재료명은 공백 무시 + 부분 일치(양방향)로 비교한다. (예: "대파" ⊂ "다진 대파")
- */
 export interface RecipeMatch {
   have: string[];
   missing: string[];
@@ -41,6 +36,11 @@ export function rankRecipes<T extends MatchableRecipe>(
     .sort((a, b) => b.match.haveRatio - a.match.haveRatio || a.match.missing.length - b.match.missing.length);
 }
 
+/**
+ * 냉장고 재료로 "만들 수 있는" 레시피를 추린다.
+ * 필수 재료(optional=false)가 모두 냉장고에 있으면 만들 수 있는 것으로 본다.
+ * 재료명은 공백 무시 + 부분 일치(양방향)로 비교한다. (예: "대파" ⊂ "다진 대파")
+ */
 export function getMakeableRecipes<T extends MatchableRecipe>(recipes: T[], ingredientNames: string[]): T[] {
   const fridge = ingredientNames.map(normalize).filter(Boolean);
   if (fridge.length === 0) return [];
