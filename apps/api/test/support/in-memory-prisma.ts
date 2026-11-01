@@ -7,10 +7,17 @@ type Where = Record<string, any>;
 function matches(row: Row, where: Where = {}): boolean {
   return Object.entries(where).every(([key, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
-      if ('in' in cond) return cond.in.includes(row[key]);
-      if ('notIn' in cond) return !cond.notIn.includes(row[key]);
-      if ('gte' in cond) return row[key] >= cond.gte;
-      if ('lt' in cond) return row[key] < cond.lt;
+      const ops = ['in', 'notIn', 'gte', 'gt', 'lte', 'lt'].filter((op) => op in cond);
+      if (ops.length) {
+        return ops.every((op) => {
+          if (op === 'in') return cond.in.includes(row[key]);
+          if (op === 'notIn') return !cond.notIn.includes(row[key]);
+          if (op === 'gte') return row[key] >= cond.gte;
+          if (op === 'gt') return row[key] > cond.gt;
+          if (op === 'lte') return row[key] <= cond.lte;
+          return row[key] < cond.lt;
+        });
+      }
     }
     return row[key] === cond;
   });
