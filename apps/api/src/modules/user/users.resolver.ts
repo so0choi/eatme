@@ -39,6 +39,11 @@ export class UsersResolver {
     return this.userService.edit(user, updateDto);
   }
 
+  @Mutation(() => User, { name: 'agreeTerms' })
+  async agreeTerms(@CurrentUser() user: UserModel): Promise<UserModel> {
+    return this.userService.agreeTerms(user.id);
+  }
+
   @Mutation(() => Boolean, { name: 'deleteAccount' })
   async deleteAccount(@CurrentUser() user: UserModel): Promise<boolean> {
     await this.accountDeletionService.deleteAccount(user.id);

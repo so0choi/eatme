@@ -30,7 +30,7 @@ describe('GraphQL API (e2e)', () => {
       await signupAndLogin();
       const res = await gql(
         `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
-        { input: { email: 'cook@eatme.test', password: 'password123', name: '중복' } },
+        { input: { email: 'cook@eatme.test', password: 'password123', name: '중복', agreeTerms: true } },
       );
       expect(res.errors[0].extensions.code).toBe('CONFLICT');
     });
@@ -38,7 +38,7 @@ describe('GraphQL API (e2e)', () => {
     it('zod 스키마 위반(짧은 비밀번호)은 거부된다', async () => {
       const res = await gql(
         `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
-        { input: { email: 'short@eatme.test', password: '123', name: '짧음' } },
+        { input: { email: 'short@eatme.test', password: '123', name: '짧음', agreeTerms: true } },
       );
       expect(res.errors[0].extensions.code).toBe('BAD_REQUEST');
       expect(ctx.prisma.user.rows).toHaveLength(0);

@@ -30,7 +30,7 @@ describe('Auth session (e2e)', () => {
     await ctx.gql(
       `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
       {
-        input: { email, password, name: '요리사' },
+        input: { email, password, name: '요리사', agreeTerms: true },
       },
     );
     const res = await ctx.gql(LOGIN, { input: { email, password, ...input } });
@@ -176,6 +176,7 @@ describe('Auth session (e2e)', () => {
           email: 'cook@eatme.test',
           password: 'password123',
           name: '요리사',
+          agreeTerms: true,
         },
       },
     );

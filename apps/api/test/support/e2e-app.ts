@@ -72,7 +72,7 @@ export async function createE2eApp(
     await gql(
       `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
       {
-        input: { email, password, name: '요리사' },
+        input: { email, password, name: '요리사', agreeTerms: true },
       },
     );
     const res = await gql(

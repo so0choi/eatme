@@ -1,77 +1,24 @@
-// Sign in with Apple e2e: 로컬 ES256 키쌍으로 identityToken을 서명하고 Apple JWKS·토큰 엔드포인트를 대체한다.
-import {
-  createLocalJWKSet,
-  exportJWK,
-  generateKeyPair,
-  KeyLike,
-  SignJWT,
-} from 'jose';
-import { APPLE_JWKS } from '@common/auth/apple/apple-identity.service';
-import { AppleTokenClient } from '@common/auth/apple/apple-token.client';
-import { createE2eApp, E2eApp } from './support/e2e-app';
+// Sign in with Apple e2e: 로컬 ES256 키쌍으로 identityToken을 서명하고 Apple JWKS·토큰 엔드포인트를 대체한다(support/apple-e2e).
+import { E2eApp } from './support/e2e-app';
+import { createAppleE2eApp } from './support/apple-e2e';
 
 describe('Apple login (e2e)', () => {
   let ctx: E2eApp;
-  let privateKey: KeyLike;
-  const exchanged: string[] = [];
-  let nextRefreshToken: string | null = 'apple-refresh-1';
-
-  const APPLE_LOGIN = `mutation($input: AppleLoginInput!) {
-    appleLogin(input: $input) {
-      token { accessToken refreshToken }
-      linkTicket
-      provider
-    }
-  }`;
-
-  async function identityToken(
-    email: string,
-    overrides: { aud?: string; iss?: string } = {},
-  ) {
-    return new SignJWT({ email })
-      .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
-      .setIssuer(overrides.iss ?? 'https://appleid.apple.com')
-      .setAudience(overrides.aud ?? 'com.eatme.app')
-      .setSubject(`apple-sub-${email}`)
-      .setIssuedAt()
-      .setExpirationTime('5m')
-      .sign(privateKey);
-  }
-
-  async function appleLogin(input: Record<string, unknown>) {
-    return ctx.gql(APPLE_LOGIN, {
-      input: { authorizationCode: 'auth-code', ...input },
-    });
-  }
+  let identityToken: Awaited<ReturnType<typeof createAppleE2eApp>>['identityToken'];
+  let appleLogin: Awaited<ReturnType<typeof createAppleE2eApp>>['appleLogin'];
+  let setNextRefreshToken: (token: string | null) => void;
+  let exchanged: string[];
 
   beforeAll(async () => {
-    const pair = await generateKeyPair('ES256');
-    privateKey = pair.privateKey;
-    const jwk = await exportJWK(pair.publicKey);
-    const jwks = createLocalJWKSet({
-      keys: [{ ...jwk, kid: 'test-key', alg: 'ES256' }],
-    });
-
-    ctx = await createE2eApp((b) =>
-      b
-        .overrideProvider(APPLE_JWKS)
-        .useValue(jwks)
-        .overrideProvider(AppleTokenClient)
-        .useValue({
-          exchangeCode: async (code: string) => {
-            exchanged.push(code);
-            return nextRefreshToken;
-          },
-          revoke: async () => undefined,
-        }),
-    );
+    const apple = await createAppleE2eApp();
+    ({ ctx, identityToken, appleLogin, setNextRefreshToken, exchanged } = apple);
   });
 
   afterAll(() => ctx?.app.close());
   beforeEach(() => {
     ctx.prisma.reset();
     exchanged.length = 0;
-    nextRefreshToken = 'apple-refresh-1';
+    setNextRefreshToken('apple-refresh-1');
   });
 
   it('신규 이메일이면 토큰을 발급하고 apple 계정 생성 + refresh token 저장', async () => {
@@ -98,7 +45,7 @@ describe('Apple login (e2e)', () => {
     const token = await identityToken('again@eatme.test');
     await appleLogin({ identityToken: token, name: '처음이름' });
 
-    nextRefreshToken = null;
+    setNextRefreshToken(null);
     const res = await appleLogin({ identityToken: token });
 
     expect(res.errors).toBeUndefined();

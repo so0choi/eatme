@@ -21,4 +21,7 @@ export class CreateUserInput {
 
   @Field({ nullable: true })
   phone?: string;
+
+  @Field()
+  agreeTerms: boolean;
 }
