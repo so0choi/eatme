@@ -5,7 +5,7 @@
   ],
   "scripts": {
     "generate": "graphql-codegen",
-    "verify": "pnpm --filter @eatme/schemas build && pnpm --filter @eatme/core build && pnpm --filter @eatme/core verify && pnpm --filter eatme-back verify && pnpm --filter eatme-front verify"
+    "verify": "pnpm --filter @eatme/schemas build && pnpm --filter @eatme/core build && pnpm --filter @eatme/core verify && pnpm --filter eatme-back verify && pnpm --filter eatme-front verify && pnpm --filter eatme-mobile verify"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.1.3",
