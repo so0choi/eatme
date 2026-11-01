@@ -160,7 +160,12 @@ export class AuthService {
    * 소셜 계정을 기존(local) 계정에 연동한다. 기존 계정 비밀번호로 소유권을 증명한다.
    * 성공 시 provider를 계정에 추가하고 세션을 발급한다.
    */
-  async linkSocialAccount(email: string, provider: string, password: string) {
+  async linkSocialAccount(
+    email: string,
+    provider: string,
+    password: string,
+    appleRefreshToken?: string,
+  ) {
     const user = await this.prismaService.user.findUnique({ where: { email } });
     if (!user) {
       throw new NotFoundException('USER_NOT_FOUND');
@@ -168,6 +173,9 @@ export class AuthService {
     // local 비밀번호로만 연동 소유권 증명 가능(순수 소셜 계정은 placeholder라 항상 실패).
     await this.compareHashOrThrow(password, user.password);
     await this.ensureProviderLinked(user, provider);
+    if (provider === 'apple') {
+      await this.saveAppleRefreshToken(email, appleRefreshToken ?? null);
+    }
     return this.issueSession(user, true);
   }
 

@@ -68,6 +68,7 @@ export class AuthResolver {
       pending.email,
       pending.provider,
       password,
+      pending.appleRefreshToken,
     );
   }
 
@@ -84,29 +85,38 @@ export class AuthResolver {
     );
 
     // 같은 이메일이 다른 방식으로 가입돼 있음: 웹 콜백과 같은 규칙으로 연동 티켓 또는 연동 불가.
+    if (result.kind === 'link_required' && !result.canPasswordLink) {
+      throw new UnauthorizedException('ACCOUNT_EXISTS');
+    }
+
+    // authorizationCode는 일회용·단기라 연동 경로에서도 지금 교환해 둔다(계정 삭제 시 revoke용).
+    const appleRefreshToken = await this.exchangeAppleCode(
+      input.authorizationCode,
+    );
+
     if (result.kind === 'link_required') {
-      if (!result.canPasswordLink) {
-        throw new UnauthorizedException('ACCOUNT_EXISTS');
-      }
       const linkTicket = this.linkStore.issue({
         email: result.email,
         provider: result.provider,
+        appleRefreshToken: appleRefreshToken ?? undefined,
       });
       return { token: null, linkTicket, provider: result.provider };
     }
 
-    // 계정 삭제 시 revoke용 refresh token. 교환 실패가 로그인을 막지는 않는다.
+    await this.authService.saveAppleRefreshToken(email, appleRefreshToken);
+    return { token: result.token, linkTicket: null, provider: 'apple' };
+  }
+
+  /** Apple refresh token 교환. 실패가 로그인을 막지는 않는다(에러 로그 후 null). */
+  private async exchangeAppleCode(code: string): Promise<string | null> {
     try {
-      const appleRefreshToken = await this.appleTokenClient.exchangeCode(
-        input.authorizationCode,
-      );
-      await this.authService.saveAppleRefreshToken(email, appleRefreshToken);
+      return await this.appleTokenClient.exchangeCode(code);
     } catch (error) {
       this.logger.error(
         `Apple authorization code exchange failed: ${(error as Error).message}`,
       );
+      return null;
     }
-    return { token: result.token, linkTicket: null, provider: 'apple' };
   }
 
   @Mutation(() => Boolean)

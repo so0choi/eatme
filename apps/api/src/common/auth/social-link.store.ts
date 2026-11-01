@@ -6,6 +6,8 @@ const TICKET_TTL_MS = 10 * 60 * 1000; // 사용자가 비밀번호를 입력할 
 export type PendingLink = {
   email: string;
   provider: string;
+  /** Apple 로그인 충돌 시 미리 교환해 둔 Apple refresh token(연동 확정 시 저장). */
+  appleRefreshToken?: string;
 };
 
 type StoredEntry = {
