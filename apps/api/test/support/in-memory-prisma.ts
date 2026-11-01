@@ -69,8 +69,19 @@ class Table {
 }
 
 export class InMemoryPrisma {
-  user = new Table(() => ({ provider: 'local', providers: [], phone: null }));
-  session = new Table();
+  user = new Table(() => ({
+    provider: 'local',
+    providers: [],
+    phone: null,
+    termsAgreedAt: null,
+    termsVersion: null,
+    appleRefreshToken: null,
+    pushEnabled: true,
+    pushHour: 9,
+    lastExpiryPushAt: null,
+  }));
+  session = new Table(() => ({ platform: 'web' }));
+  pushToken = new Table();
   ingredient = new Table(() => ({
     status: 'FRESH',
     price: null,
@@ -90,7 +101,7 @@ export class InMemoryPrisma {
   }
 
   reset() {
-    for (const table of [this.user, this.session, this.ingredient, this.ingredientDisposal]) {
+    for (const table of [this.user, this.session, this.pushToken, this.ingredient, this.ingredientDisposal]) {
       table.rows = [];
     }
   }
