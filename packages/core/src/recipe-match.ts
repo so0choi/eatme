@@ -1,4 +1,7 @@
-import { Recipe } from 'gql/graphql';
+/** 매칭에 필요한 최소 레시피 구조 (gql Recipe 등이 구조적으로 만족). */
+export interface MatchableRecipe {
+  ingredients: { name: string; optional?: boolean | null }[];
+}
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/\s/g, '');
@@ -9,7 +12,7 @@ function normalize(s: string): string {
  * 필수 재료(optional=false)가 모두 냉장고에 있으면 만들 수 있는 것으로 본다.
  * 재료명은 공백 무시 + 부분 일치(양방향)로 비교한다. (예: "대파" ⊂ "다진 대파")
  */
-export function getMakeableRecipes(recipes: Recipe[], ingredientNames: string[]): Recipe[] {
+export function getMakeableRecipes<T extends MatchableRecipe>(recipes: T[], ingredientNames: string[]): T[] {
   const fridge = ingredientNames.map(normalize).filter(Boolean);
   if (fridge.length === 0) return [];
 

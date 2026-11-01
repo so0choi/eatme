@@ -6,7 +6,7 @@ import { getClient } from '@/app/ApolloClient';
 import { CREATE_INGREDIENT } from '@/queries/fridge.queries';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getRecommendedUseBy, type StorageZone } from '../shelf-life-rules';
+import { getRecommendedUseBy, type StorageZone } from '@eatme/core';
 
 function isTodayOrFuture(value: string) {
   const selected = new Date(value);

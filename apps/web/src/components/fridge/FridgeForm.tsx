@@ -13,7 +13,7 @@ import {
   getRecommendedUseBy,
   storageLabels,
   type StorageZone,
-} from './shelf-life-rules';
+} from '@eatme/core';
 
 export type FridgeFormDefaults = {
   name?: string | null;

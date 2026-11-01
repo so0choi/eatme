@@ -7,7 +7,7 @@ import { GET_ALL_INGREDIENTS } from '@/queries/fridge.queries';
 import { GET_COOKING_SHORTS } from '@/queries/youtube.queries';
 import { CookingShort, Ingredient, Recipe } from 'gql/graphql';
 import { difficultyMeta, formatCookTime } from '@/components/recipe/recipe-meta';
-import { getMakeableRecipes, pickRandom } from '@/components/recipe/recipe-match';
+import { getMakeableRecipes, pickRandom } from '@eatme/core';
 import RecipesContent from './RecipesContent';
 import CookingShorts from '@/components/recipe/CookingShorts';
 
