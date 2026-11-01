@@ -26,9 +26,8 @@ export class AuthResolver {
   @Mutation(() => LoginToken)
   async refreshToken(
     @Args('refreshToken') refreshToken: string,
-    @Args('platform', { nullable: true }) platform?: string,
   ): Promise<LoginToken> {
-    return this.authService.rotateSession(refreshToken, platform);
+    return this.authService.rotateSession(refreshToken);
   }
 
   // OAuth 콜백이 발급한 일회용 code를 실제 토큰으로 교환한다.

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -37,17 +38,30 @@ export type OAuthLoginResult =
       existingProviders: string[];
     };
 
+// 토큰 타입 클레임: 시크릿이 같거나 폴백돼도 access/refresh 혼용을 막는다.
+export const TOKEN_TYPE_ACCESS = 'access';
+export const TOKEN_TYPE_REFRESH = 'refresh';
+
 export const ACCESS_TOKEN_EXPIRES_IN = 60 * 15; // 15분
 const REFRESH_TOKEN_EXPIRES_IN = 60 * 60 * 24 * 7; // 7일
 const REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN = 60 * 60 * 24 * 30; // 30일
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) {
+    if (!this.configService.get<string>('JWT_REFRESH_SECRET')) {
+      // 미설정 시 @nestjs/jwt가 JWT_SECRET으로 폴백한다. typ 클레임으로 혼용은 막지만 별도 시크릿을 권장.
+      this.logger.warn(
+        'JWT_REFRESH_SECRET is not set; refresh tokens fall back to JWT_SECRET.',
+      );
+    }
+  }
 
   async validateUser({ email, password }: LoginDto): Promise<UserModel> {
     const user = await this.prismaService.user.findUnique({
@@ -70,7 +84,11 @@ export class AuthService {
 
   async localLogin({ email, password, autologin, platform }: LoginDto) {
     const validUser = await this.validateUser({ email, password });
-    return this.issueSession(validUser, Boolean(autologin), platform);
+    return this.issueSession(
+      validUser,
+      Boolean(autologin),
+      platform ?? undefined,
+    );
   }
 
   /**
@@ -169,19 +187,19 @@ export class AuthService {
   /**
    * refresh token rotation.
    * refresh JWT 서명·만료를 검증하고, DB 세션이 존재·미만료일 때만 같은 행을 새 refresh token으로 교체한다.
-   * 이미 교체된(재사용된) token이나 무효/만료 token은 UNAUTHENTICATED.
-   * platform을 주지 않으면 기존 세션의 platform을 유지한다.
+   * 이미 교체된(재사용된) token이나 무효/만료 token, refresh 타입이 아닌 token은 UNAUTHENTICATED.
+   * 세션의 platform은 그대로 유지한다.
    */
-  async rotateSession(
-    refreshToken: string,
-    platform?: string,
-  ): Promise<LoginToken> {
-    let payload: CreateJwtTokenDto;
+  async rotateSession(refreshToken: string): Promise<LoginToken> {
+    let payload: CreateJwtTokenDto & { typ?: string };
     try {
-      payload = this.jwtService.verify<CreateJwtTokenDto>(refreshToken, {
+      payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
+      throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
+    }
+    if (payload.typ !== TOKEN_TYPE_REFRESH) {
       throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
     }
 
@@ -212,7 +230,6 @@ export class AuthService {
       data: {
         refreshToken: token.refreshToken,
         expiresAt: refreshExpiresAt,
-        platform: platform ?? session.platform,
       },
     });
     if (count !== 1) {
@@ -243,13 +260,16 @@ export class AuthService {
   }
 
   getAccessToken(createJwtTokenDto: CreateJwtTokenDto) {
-    return this.jwtService.sign(createJwtTokenDto);
+    return this.jwtService.sign({
+      ...createJwtTokenDto,
+      typ: TOKEN_TYPE_ACCESS,
+    });
   }
 
   getRefreshToken(payload: CreateJwtTokenDto) {
     // jti: 같은 초에 같은 payload로 발급돼도 refresh token이 겹치지 않게(Session.refreshToken unique).
     return this.jwtService.sign(
-      { ...payload, jti: randomUUID() },
+      { ...payload, typ: TOKEN_TYPE_REFRESH, jti: randomUUID() },
       {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
         expiresIn: payload.autologin

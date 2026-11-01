@@ -6,9 +6,23 @@ describe('Auth session (e2e)', () => {
   let ctx: E2eApp;
 
   const LOGIN = `mutation($input: LoginDto!) { login(input: $input) { accessToken refreshToken expiresIn refreshExpiresIn } }`;
-  const REFRESH = `mutation($refreshToken: String!, $platform: String) {
-    refreshToken(refreshToken: $refreshToken, platform: $platform) { accessToken refreshToken expiresIn refreshExpiresIn }
+  const REFRESH = `mutation($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) { accessToken refreshToken expiresIn refreshExpiresIn }
   }`;
+  const PROTECTED = `{ getAllIngredients { id } }`;
+  const REFRESH_SECRET = 'e2e-refresh-secret';
+
+  function sign(
+    payload: Record<string, unknown>,
+    options: Record<string, unknown> = {},
+  ) {
+    return ctx.app.get(JwtService).sign(payload, options);
+  }
+
+  function userPayload() {
+    const user = ctx.prisma.user.rows[0];
+    return { id: user.id, email: user.email, autologin: false };
+  }
 
   async function signupAndLoginFull(input: Record<string, unknown> = {}) {
     const email = 'cook@eatme.test';
@@ -99,7 +113,7 @@ describe('Auth session (e2e)', () => {
     const expired = ctx.app
       .get(JwtService)
       .sign(
-        { id: user.id, email: user.email, autologin: false },
+        { id: user.id, email: user.email, autologin: false, typ: 'access' },
         { expiresIn: -10 },
       );
 
@@ -110,6 +124,70 @@ describe('Auth session (e2e)', () => {
     );
     expect(res.data).toBeNull();
     expect(res.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('서명은 유효하지만 exp가 지난 refresh token은 UNAUTHENTICATED', async () => {
+    await signupAndLoginFull();
+    const expired = sign(
+      { ...userPayload(), typ: 'refresh', jti: 'expired' },
+      { secret: REFRESH_SECRET, expiresIn: -10 },
+    );
+    // DB 세션은 유효하게 두어 JWT exp 검증만으로 거부되는지 확인
+    ctx.prisma.session.rows[0].refreshToken = expired;
+
+    const res = await ctx.gql(REFRESH, { refreshToken: expired });
+    expect(res.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    expect(ctx.prisma.session.rows[0].refreshToken).toBe(expired);
+  });
+
+  it('refresh token을 Bearer access token으로 쓰면 UNAUTHENTICATED', async () => {
+    const login = await signupAndLoginFull();
+    const real = await ctx.gql(PROTECTED, undefined, login.refreshToken);
+    expect(real.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+
+    // 시크릿이 같은 경우(폴백)를 가정: access 시크릿으로 서명된 refresh 타입 토큰도 거부
+    const sameSecret = sign({ ...userPayload(), typ: 'refresh' });
+    const res = await ctx.gql(PROTECTED, undefined, sameSecret);
+    expect(res.data).toBeNull();
+    expect(res.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('access token을 refreshToken에 넘기면 UNAUTHENTICATED', async () => {
+    const login = await signupAndLoginFull();
+    const real = await ctx.gql(REFRESH, { refreshToken: login.accessToken });
+    expect(real.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+
+    // 시크릿이 같은 경우를 가정: refresh 시크릿으로 서명된 access 타입 토큰 + 세션 행이 있어도 거부
+    const sameSecret = sign(
+      { ...userPayload(), typ: 'access' },
+      { secret: REFRESH_SECRET, expiresIn: 60 },
+    );
+    ctx.prisma.session.rows[0].refreshToken = sameSecret;
+    const res = await ctx.gql(REFRESH, { refreshToken: sameSecret });
+    expect(res.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    expect(ctx.prisma.session.rows[0].refreshToken).toBe(sameSecret);
+  });
+
+  it('허용되지 않은 platform으로 login하면 BAD_REQUEST', async () => {
+    await ctx.gql(
+      `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
+      {
+        input: {
+          email: 'cook@eatme.test',
+          password: 'password123',
+          name: '요리사',
+        },
+      },
+    );
+    const res = await ctx.gql(LOGIN, {
+      input: {
+        email: 'cook@eatme.test',
+        password: 'password123',
+        platform: 'tablet',
+      },
+    });
+    expect(res.errors[0].extensions.code).toBe('BAD_REQUEST');
+    expect(ctx.prisma.session.rows).toHaveLength(0);
   });
 
   it('login의 platform이 세션에 저장되고 refresh 후에도 유지된다', async () => {
