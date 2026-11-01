@@ -1,5 +1,6 @@
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
-import { Logger, UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { GqlThrottlerGuard } from '@common/guards/gql-throttler.guard';
 import { Public } from '@common/decorators/setMetadata';
 import { LoginDto, LoginToken } from './dtos/login.dto';
 import { AuthService } from './auth.service';
@@ -22,6 +23,7 @@ export class AuthResolver {
     private appleTokenClient: AppleTokenClient,
   ) {}
 
+  @UseGuards(GqlThrottlerGuard)
   @Public()
   @Mutation(() => LoginToken)
   async login(@Args('input') input: LoginDto): Promise<LoginToken> {
@@ -29,6 +31,7 @@ export class AuthResolver {
   }
 
   // refresh token rotation: 유효한 세션이면 새 access/refresh를 발급하고 기존 세션 행을 교체한다.
+  @UseGuards(GqlThrottlerGuard)
   @Public()
   @Mutation(() => LoginToken)
   async refreshToken(
@@ -54,6 +57,7 @@ export class AuthResolver {
   }
 
   // 소셜 로그인 충돌 시 발급된 연동 티켓 + 기존 비밀번호로 계정을 연동하고 로그인한다.
+  @UseGuards(GqlThrottlerGuard)
   @Public()
   @Mutation(() => LoginToken)
   async linkSocialAccount(
@@ -73,6 +77,7 @@ export class AuthResolver {
   }
 
   // Sign in with Apple(iOS): identityToken 검증 → 소셜 로그인 판별 → Apple refresh token 보관.
+  @UseGuards(GqlThrottlerGuard)
   @Public()
   @Mutation(() => AppleLoginResult)
   async appleLogin(

@@ -1,4 +1,5 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, UseGuards } from '@nestjs/common';
+import { GqlThrottlerGuard } from '@common/guards/gql-throttler.guard';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '@common/decorators/getCurrentUser';
 import { Public } from '@common/decorators/setMetadata';
@@ -16,6 +17,7 @@ export class UsersResolver {
     private accountDeletionService: AccountDeletionService,
   ) {}
 
+  @UseGuards(GqlThrottlerGuard)
   @Public()
   @Mutation(() => User, { name: 'signup' })
   async createUser(

@@ -2,6 +2,8 @@
 // PrismaService만 in-memory 구현으로 교체한다. JWT 시크릿은 AppModule 평가 전에 설정해야 하므로 import보다 먼저 둔다.
 process.env.JWT_SECRET = 'e2e-access-secret';
 process.env.JWT_REFRESH_SECRET = 'e2e-refresh-secret';
+// 모든 요청이 같은 IP(127.0.0.1)라 기본 한도를 크게 올린다. rate-limit 자체는 ops e2e가 별도 앱으로 검증.
+process.env.AUTH_THROTTLE_LIMIT ??= '1000';
 
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import {
