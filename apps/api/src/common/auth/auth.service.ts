@@ -186,7 +186,10 @@ export class AuthService {
 
   /** providers 배열에 provider가 없으면 추가한다(멱등). */
   private async ensureProviderLinked(user: UserModel, provider: string) {
-    if ((user.providers ?? []).includes(provider) || user.provider === provider) {
+    if (
+      (user.providers ?? []).includes(provider) ||
+      user.provider === provider
+    ) {
       return;
     }
     await this.prismaService.user.update({
@@ -201,16 +204,17 @@ export class AuthService {
     autologin: boolean,
     platform = 'web',
   ): Promise<LoginToken> {
-    const { token, refreshExpiresAt } = this.signTokens(user, autologin);
-    await this.prismaService.session.create({
+    const refresh = this.signRefresh(user, autologin);
+    // 세션 행을 먼저 만들고 그 id(sid)를 access token에 담는다 → 세션 삭제 시 access token도 즉시 무효.
+    const session = await this.prismaService.session.create({
       data: {
         userId: user.id,
-        refreshToken: token.refreshToken,
-        expiresAt: refreshExpiresAt,
+        refreshToken: refresh.refreshToken,
+        expiresAt: refresh.refreshExpiresAt,
         platform,
       },
     });
-    return token;
+    return this.toLoginToken(user, autologin, session.id, refresh);
   }
 
   /**
@@ -249,48 +253,60 @@ export class AuthService {
       throw new UnauthorizedException('SESSION_EXPIRED');
     }
 
-    const { token, refreshExpiresAt } = this.signTokens(
-      user,
-      Boolean(payload.autologin),
-    );
+    const autologin = Boolean(payload.autologin);
+    const refresh = this.signRefresh(user, autologin);
     // 이전 refresh token을 조건으로 교체 → 동시 요청 중 하나만 성공(재사용 방지).
     const { count } = await this.prismaService.session.updateMany({
       where: { id: session.id, refreshToken },
       data: {
-        refreshToken: token.refreshToken,
-        expiresAt: refreshExpiresAt,
+        refreshToken: refresh.refreshToken,
+        expiresAt: refresh.refreshExpiresAt,
       },
     });
     if (count !== 1) {
       throw new UnauthorizedException('SESSION_EXPIRED');
     }
-    return token;
+    // rotation은 같은 세션 행을 갱신하므로 sid는 그대로다.
+    return this.toLoginToken(user, autologin, session.id, refresh);
   }
 
-  private signTokens(user: UserModel, autologin: boolean) {
-    const payload: CreateJwtTokenDto = {
-      id: user.id,
-      email: user.email,
-      autologin,
-    };
+  private jwtPayload(user: UserModel, autologin: boolean): CreateJwtTokenDto {
+    return { id: user.id, email: user.email, autologin };
+  }
+
+  private signRefresh(user: UserModel, autologin: boolean) {
     const refreshExpiresIn = autologin
       ? REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN
       : REFRESH_TOKEN_EXPIRES_IN;
-    const token: LoginToken = {
-      accessToken: this.getAccessToken(payload),
-      refreshToken: this.getRefreshToken(payload),
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-      refreshExpiresIn,
-    };
     return {
-      token,
+      refreshToken: this.getRefreshToken(this.jwtPayload(user, autologin)),
+      refreshExpiresIn,
       refreshExpiresAt: new Date(Date.now() + refreshExpiresIn * 1000),
     };
   }
 
-  getAccessToken(createJwtTokenDto: CreateJwtTokenDto) {
+  private toLoginToken(
+    user: UserModel,
+    autologin: boolean,
+    sessionId: number,
+    refresh: { refreshToken: string; refreshExpiresIn: number },
+  ): LoginToken {
+    return {
+      accessToken: this.getAccessToken(
+        this.jwtPayload(user, autologin),
+        sessionId,
+      ),
+      refreshToken: refresh.refreshToken,
+      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+      refreshExpiresIn: refresh.refreshExpiresIn,
+    };
+  }
+
+  /** access token은 발급 세션(sid)에 묶인다. JwtStrategy가 세션 존재를 확인한다. */
+  getAccessToken(createJwtTokenDto: CreateJwtTokenDto, sessionId: number) {
     return this.jwtService.sign({
       ...createJwtTokenDto,
+      sid: sessionId,
       typ: TOKEN_TYPE_ACCESS,
     });
   }

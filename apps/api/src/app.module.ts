@@ -21,6 +21,7 @@ import { ReviewModule } from '@modules/review/review.module';
 import { IngredientModule } from '@modules/ingredient/ingredient.module';
 import { RecipeModule } from '@modules/recipe/recipe.module';
 import { YoutubeModule } from '@modules/youtube/youtube.module';
+import { NotificationModule } from '@modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { YoutubeModule } from '@modules/youtube/youtube.module';
     RecipeModule,
     YoutubeModule,
     AppConfigModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

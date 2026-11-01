@@ -66,6 +66,29 @@ class Table {
     this.rows = this.rows.filter((r) => !matches(r, where));
     return { count: before - this.rows.length };
   };
+  upsert = async ({ where, create, update }: { where: Where; create: Record<string, any>; update: Record<string, any> }) => {
+    const row = this.rows.find((r) => matches(r, where));
+    return row ? applyData(row, update) : this.create({ data: create });
+  };
+}
+
+/** 부모 행이 삭제되면 FK(onDelete: Cascade)로 묶인 자식 행도 지운다. */
+function cascadeDeletes(parent: Table, child: Table, foreignKey: string) {
+  const { delete: del, deleteMany } = parent;
+  const removeChildren = (ids: number[]) => {
+    child.rows = child.rows.filter((r) => !ids.includes(r[foreignKey]));
+  };
+  parent.delete = async (args) => {
+    const row = await del(args);
+    removeChildren([row.id]);
+    return row;
+  };
+  parent.deleteMany = async (args = {}) => {
+    const ids = parent.rows.filter((r) => matches(r, args.where)).map((r) => r.id);
+    const result = await deleteMany(args);
+    removeChildren(ids);
+    return result;
+  };
 }
 
 export class InMemoryPrisma {
@@ -94,6 +117,11 @@ export class InMemoryPrisma {
   review = new Table();
   recipe = new Table(() => ({ authorId: null }));
   ingredientDisposal = new Table(() => ({ discardedAt: new Date() }));
+
+  constructor() {
+    cascadeDeletes(this.session, this.pushToken, 'sessionId');
+    cascadeDeletes(this.user, this.pushToken, 'userId');
+  }
 
   async $connect() {}
   async $disconnect() {}
