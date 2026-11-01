@@ -1,70 +1,29 @@
-// DB 없이 GraphQL 전체 파이프라인(가드·ZodValidationPipe·예외 필터·리졸버·서비스)을 태우는 e2e.
-// PrismaService만 in-memory 구현으로 교체한다.
-process.env.JWT_SECRET = 'e2e-access-secret';
-process.env.JWT_REFRESH_SECRET = 'e2e-refresh-secret';
-
-import { Test } from '@nestjs/testing';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { AppModule } from '@/app.module';
-import { PrismaService } from '@db/prisma.service';
-import { ExceptionFilter } from '@/filters/global-exception.filter';
-import { YoutubeService } from '@modules/youtube/youtube.service';
-import { InMemoryPrisma } from './support/in-memory-prisma';
+// DB 없이 GraphQL 전체 파이프라인을 태우는 e2e. 부트스트랩은 support/e2e-app.ts 참고.
+import { createE2eApp, E2eApp } from './support/e2e-app';
 
 describe('GraphQL API (e2e)', () => {
-  let app: NestFastifyApplication;
-  const prisma = new InMemoryPrisma();
-
-  async function gql<T = any>(query: string, variables?: Record<string, unknown>, token?: string) {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/graphql',
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-      payload: { query, variables },
-    });
-    return res.json() as { data?: T; errors?: { message: string; extensions?: { code?: string } }[] };
-  }
-
-  async function signupAndLogin(email = 'cook@eatme.test', password = 'password123') {
-    await gql(
-      `mutation($input: CreateUserInput!) { signup(createUserInput: $input) { id } }`,
-      { input: { email, password, name: '요리사' } },
-    );
-    const res = await gql(
-      `mutation($input: LoginDto!) { login(input: $input) { accessToken refreshToken expiresIn } }`,
-      { input: { email, password } },
-    );
-    return res.data.login.accessToken as string;
-  }
+  let ctx: E2eApp;
+  const gql: E2eApp['gql'] = (...args) => ctx.gql(...args);
+  const signupAndLogin: E2eApp['signupAndLogin'] = (...args) => ctx.signupAndLogin(...args);
 
   const CREATE = `mutation($input: CreateIngredientInput!) {
     createIngredient(input: $input) { id name quantity unit storage status }
   }`;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(PrismaService)
-      .useValue(prisma)
-      .overrideProvider(YoutubeService)
-      .useValue({ getShorts: async () => [] })
-      .compile();
-
-    app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
-    app.useGlobalFilters(new ExceptionFilter());
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    ctx = await createE2eApp();
   });
 
-  afterAll(() => app?.close());
-  beforeEach(() => prisma.reset());
+  afterAll(() => ctx?.app.close());
+  beforeEach(() => ctx.prisma.reset());
 
   describe('auth', () => {
     it('signup 후 login 하면 토큰과 세션을 발급한다', async () => {
       const token = await signupAndLogin();
       expect(token).toEqual(expect.any(String));
-      expect(prisma.session.rows).toHaveLength(1);
+      expect(ctx.prisma.session.rows).toHaveLength(1);
       // 비밀번호는 해시로 저장된다
-      expect(prisma.user.rows[0].password).not.toBe('password123');
+      expect(ctx.prisma.user.rows[0].password).not.toBe('password123');
     });
 
     it('같은 이메일로 다시 가입하면 CONFLICT', async () => {
@@ -82,7 +41,7 @@ describe('GraphQL API (e2e)', () => {
         { input: { email: 'short@eatme.test', password: '123', name: '짧음' } },
       );
       expect(res.errors[0].extensions.code).toBe('BAD_REQUEST');
-      expect(prisma.user.rows).toHaveLength(0);
+      expect(ctx.prisma.user.rows).toHaveLength(0);
     });
 
     it('틀린 비밀번호는 UNAUTHENTICATED', async () => {
@@ -101,7 +60,7 @@ describe('GraphQL API (e2e)', () => {
       const token = await signupAndLogin();
       const res = await gql(`mutation { logout }`, undefined, token);
       expect(res.data.logout).toBe(true);
-      expect(prisma.session.rows).toHaveLength(0);
+      expect(ctx.prisma.session.rows).toHaveLength(0);
     });
   });
 
@@ -130,14 +89,14 @@ describe('GraphQL API (e2e)', () => {
 
       const discarded = await gql(`mutation($id: Int!) { discardIngredient(id: $id) { lossAmount } }`, { id }, token);
       expect(discarded.data.discardIngredient.lossAmount).toBe(3000);
-      expect(prisma.ingredient.rows[0].status).toBe('DISCARDED');
+      expect(ctx.prisma.ingredient.rows[0].status).toBe('DISCARDED');
 
       const again = await gql(`mutation($id: Int!) { discardIngredient(id: $id) { lossAmount } }`, { id }, token);
       expect(again.errors[0].extensions.code).toBe('BAD_REQUEST');
 
       const removed = await gql(`mutation($id: Int!) { deleteIngredient(id: $id) }`, { id }, token);
       expect(removed.data.deleteIngredient).toBe(true);
-      expect(prisma.ingredient.rows).toHaveLength(0);
+      expect(ctx.prisma.ingredient.rows).toHaveLength(0);
     });
 
     it('다른 사용자의 재료는 조회·수정·삭제할 수 없다', async () => {
@@ -151,7 +110,7 @@ describe('GraphQL API (e2e)', () => {
 
       const del = await gql(`mutation($id: Int!) { deleteIngredient(id: $id) }`, { id }, otherToken);
       expect(del.errors[0].extensions.code).toBe('NOT_FOUND');
-      expect(prisma.ingredient.rows).toHaveLength(1);
+      expect(ctx.prisma.ingredient.rows).toHaveLength(1);
 
       const list = await gql(`{ getAllIngredients { id } }`, undefined, otherToken);
       expect(list.data.getAllIngredients).toEqual([]);

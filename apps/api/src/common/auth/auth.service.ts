@@ -6,6 +6,8 @@ import {
 import { LoginDto } from './dtos/login.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 
 import { CreateJwtTokenDto } from './dtos/createJwtToken.dto';
 import { PrismaService } from '@db/prisma.service';
@@ -44,6 +46,7 @@ export class AuthService {
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async validateUser({ email, password }: LoginDto): Promise<UserModel> {
@@ -65,9 +68,9 @@ export class AuthService {
     }
   }
 
-  async localLogin({ email, password, autologin }: LoginDto) {
+  async localLogin({ email, password, autologin, platform }: LoginDto) {
     const validUser = await this.validateUser({ email, password });
-    return this.issueSession(validUser, Boolean(autologin));
+    return this.issueSession(validUser, Boolean(autologin), platform);
   }
 
   /**
@@ -146,30 +149,96 @@ export class AuthService {
   }
 
   /** 유저에게 access/refresh 토큰을 발급하고 Session 레코드를 생성한다. */
-  private async issueSession(user: UserModel, autologin: boolean) {
-    const payload = { id: user.id, email: user.email, autologin };
-
-    const accessToken = this.getAccessToken(payload);
-    const refreshToken = this.getRefreshToken(payload);
-
-    const refreshExpiresIn = autologin
-      ? REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN
-      : REFRESH_TOKEN_EXPIRES_IN;
-    const expiresAt = new Date(Date.now() + refreshExpiresIn * 1000);
-
+  private async issueSession(
+    user: UserModel,
+    autologin: boolean,
+    platform = 'web',
+  ): Promise<LoginToken> {
+    const { token, refreshExpiresAt } = this.signTokens(user, autologin);
     await this.prismaService.session.create({
       data: {
         userId: user.id,
-        refreshToken,
-        expiresAt,
+        refreshToken: token.refreshToken,
+        expiresAt: refreshExpiresAt,
+        platform,
       },
     });
+    return token;
+  }
 
-    return {
-      accessToken,
-      refreshToken,
+  /**
+   * refresh token rotation.
+   * refresh JWT 서명·만료를 검증하고, DB 세션이 존재·미만료일 때만 같은 행을 새 refresh token으로 교체한다.
+   * 이미 교체된(재사용된) token이나 무효/만료 token은 UNAUTHENTICATED.
+   * platform을 주지 않으면 기존 세션의 platform을 유지한다.
+   */
+  async rotateSession(
+    refreshToken: string,
+    platform?: string,
+  ): Promise<LoginToken> {
+    let payload: CreateJwtTokenDto;
+    try {
+      payload = this.jwtService.verify<CreateJwtTokenDto>(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
+    }
+
+    const session = await this.prismaService.session.findUnique({
+      where: { refreshToken },
+    });
+    if (
+      !session ||
+      session.userId !== payload.id ||
+      session.expiresAt < new Date()
+    ) {
+      throw new UnauthorizedException('SESSION_EXPIRED');
+    }
+    const user = await this.prismaService.user.findUnique({
+      where: { id: session.userId },
+    });
+    if (!user) {
+      throw new UnauthorizedException('SESSION_EXPIRED');
+    }
+
+    const { token, refreshExpiresAt } = this.signTokens(
+      user,
+      Boolean(payload.autologin),
+    );
+    // 이전 refresh token을 조건으로 교체 → 동시 요청 중 하나만 성공(재사용 방지).
+    const { count } = await this.prismaService.session.updateMany({
+      where: { id: session.id, refreshToken },
+      data: {
+        refreshToken: token.refreshToken,
+        expiresAt: refreshExpiresAt,
+        platform: platform ?? session.platform,
+      },
+    });
+    if (count !== 1) {
+      throw new UnauthorizedException('SESSION_EXPIRED');
+    }
+    return token;
+  }
+
+  private signTokens(user: UserModel, autologin: boolean) {
+    const payload: CreateJwtTokenDto = {
+      id: user.id,
+      email: user.email,
+      autologin,
+    };
+    const refreshExpiresIn = autologin
+      ? REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN
+      : REFRESH_TOKEN_EXPIRES_IN;
+    const token: LoginToken = {
+      accessToken: this.getAccessToken(payload),
+      refreshToken: this.getRefreshToken(payload),
       expiresIn: ACCESS_TOKEN_EXPIRES_IN,
       refreshExpiresIn,
+    };
+    return {
+      token,
+      refreshExpiresAt: new Date(Date.now() + refreshExpiresIn * 1000),
     };
   }
 
@@ -178,36 +247,16 @@ export class AuthService {
   }
 
   getRefreshToken(payload: CreateJwtTokenDto) {
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: payload.autologin
-        ? REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN
-        : REFRESH_TOKEN_EXPIRES_IN,
-    });
-  }
-
-  async refreshAccessToken(token: string) {
-    const session = await this.prismaService.session.findUnique({
-      where: { refreshToken: token },
-      include: { user: true },
-    });
-
-    if (!session || session.expiresAt < new Date()) {
-      throw new NotFoundException('SESSION_EXPIRED');
-    }
-
-    const payload: CreateJwtTokenDto = {
-      id: session.user.id,
-      email: session.user.email,
-      autologin:
-        session.expiresAt >
-        new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000),
-    };
-
-    return {
-      accessToken: this.getAccessToken(payload),
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-    };
+    // jti: 같은 초에 같은 payload로 발급돼도 refresh token이 겹치지 않게(Session.refreshToken unique).
+    return this.jwtService.sign(
+      { ...payload, jti: randomUUID() },
+      {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: payload.autologin
+          ? REFRESH_TOKEN_EXPIRES_IN_AUTOLOGIN
+          : REFRESH_TOKEN_EXPIRES_IN,
+      },
+    );
   }
 
   async logout(userId: number): Promise<void> {

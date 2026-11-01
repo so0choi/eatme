@@ -21,6 +21,16 @@ export class AuthResolver {
     return this.authService.localLogin(input);
   }
 
+  // refresh token rotation: 유효한 세션이면 새 access/refresh를 발급하고 기존 세션 행을 교체한다.
+  @Public()
+  @Mutation(() => LoginToken)
+  async refreshToken(
+    @Args('refreshToken') refreshToken: string,
+    @Args('platform', { nullable: true }) platform?: string,
+  ): Promise<LoginToken> {
+    return this.authService.rotateSession(refreshToken, platform);
+  }
+
   // OAuth 콜백이 발급한 일회용 code를 실제 토큰으로 교환한다.
   @Public()
   @Mutation(() => LoginToken)
