@@ -4,7 +4,8 @@
     "apps/*"
   ],
   "scripts": {
-    "generate": "graphql-codegen"
+    "generate": "graphql-codegen",
+    "verify": "pnpm --filter @eatme/schemas build && pnpm --filter eatme-back verify && pnpm --filter eatme-front verify"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.1.3",

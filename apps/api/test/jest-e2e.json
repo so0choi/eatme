@@ -1,9 +1,30 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
+  "rootDir": "..",
   "testEnvironment": "node",
+  "roots": [
+    "<rootDir>/test"
+  ],
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "tsconfig": "<rootDir>/tsconfig.json"
+      }
+    ]
+  },
+  "moduleNameMapper": {
+    "^@common/(.*)$": "<rootDir>/src/common/$1",
+    "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "^@db/(.*)$": "<rootDir>/src/database/$1",
+    "^@prisma/(enums|models)(/.*)?$": "<rootDir>/generated/prisma/$1$2",
+    "^@lib/(.*)$": "<rootDir>/lib/$1",
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "^chalk$": "<rootDir>/test/support/chalk-stub.ts"
   }
 }
