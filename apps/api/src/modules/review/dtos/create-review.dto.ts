@@ -9,6 +9,8 @@ export class CreateReviewInput extends OmitType(
   ['id', 'comments', 'author'],
   InputType,
 ) {
+  // nestjs-zod ZodValidationPipe는 isZodDto 플래그가 있는 클래스만 검증한다.
+  static isZodDto = true;
   static schema = createReviewSchema;
 
   authorId: number;
