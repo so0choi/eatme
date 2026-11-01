@@ -12,6 +12,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { NaverStrategy } from './strategies/naver.strategy';
 import { OAuthCodeStore } from './oauth-code.store';
 import { SocialLinkStore } from './social-link.store';
+import { OAuthStateService } from './oauth-state';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 config();
@@ -39,6 +40,7 @@ config();
     NaverStrategy,
     OAuthCodeStore,
     SocialLinkStore,
+    OAuthStateService,
   ],
 })
 export class AuthModule {}

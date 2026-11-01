@@ -103,7 +103,7 @@ eat-me/
 - 소셜 계정 연동은 **로그인 중 충돌 시 비밀번호 확인(JIT)** 방식만 지원. 순수 소셜 계정끼리 충돌(비밀번호 없음)은 연동 불가로 안내만 함. 로그인 후 설정 페이지에서 연동하는 플로우는 미구현.
 - `SocialLinkStore`의 연동 티켓은 providerId를 저장하지 않음(`providers` 배열은 provider 이름만 보관) → 특정 소셜 계정 식별/해제(unlink)는 후속 과제.
 - `OAuthCodeStore` / `SocialLinkStore`는 프로세스 메모리 기반 → api 다중 인스턴스 배포 시 Redis 등 공유 저장소로 교체 필요.
-- authorize 요청에 `state`를 보내지만 콜백에서 검증하지 않음 → OAuth CSRF 방어 미구현(후속 과제).
+- OAuth `state`는 서명된 JWT(`OAuthStateService`, `JWT_SECRET`, 5분, `typ: 'oauth_state'`, `{ client, nonce }`)로 보내고 콜백에서 검증한다(OAuth CSRF 방어). 검증 실패 시 웹 `/login?error=invalid_state`. `?client=mobile`로 시작하면 콜백이 `${MOBILE_REDIRECT_URI ?? 'eatme://'}auth/callback?code=…`(연동 필요 시 `…link?ticket=…&provider=…`) 딥링크로 리다이렉트. 단, state는 브라우저 세션에 바인딩되지 않음(서명·만료만 검증) — 5분 내 재사용 방지는 미구현.
 
 ## 웹 라우트 (App Router 그룹)
 
