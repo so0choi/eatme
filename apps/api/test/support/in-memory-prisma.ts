@@ -91,6 +91,8 @@ export class InMemoryPrisma {
     category: null,
     imageUrl: null,
   }));
+  review = new Table();
+  recipe = new Table(() => ({ authorId: null }));
   ingredientDisposal = new Table(() => ({ discardedAt: new Date() }));
 
   async $connect() {}
@@ -101,7 +103,7 @@ export class InMemoryPrisma {
   }
 
   reset() {
-    for (const table of [this.user, this.session, this.pushToken, this.ingredient, this.ingredientDisposal]) {
+    for (const table of [this.user, this.session, this.pushToken, this.ingredient, this.ingredientDisposal, this.review, this.recipe]) {
       table.rows = [];
     }
   }

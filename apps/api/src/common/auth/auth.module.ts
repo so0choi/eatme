@@ -18,13 +18,14 @@ import {
   AppleIdentityService,
   appleJwksProvider,
 } from './apple/apple-identity.service';
-import { AppleTokenClient } from './apple/apple-token.client';
+import { AppleModule } from './apple/apple.module';
 
 config();
 
 @Module({
   imports: [
     UsersModule,
+    AppleModule,
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({
@@ -48,7 +49,6 @@ config();
     OAuthStateService,
     appleJwksProvider,
     AppleIdentityService,
-    AppleTokenClient,
   ],
 })
 export class AuthModule {}

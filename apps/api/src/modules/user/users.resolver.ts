@@ -1,6 +1,8 @@
+import { UnauthorizedException } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '@common/decorators/getCurrentUser';
 import { Public } from '@common/decorators/setMetadata';
+import { AccountDeletionService } from './account-deletion.service';
 import { UsersService } from './users.service';
 import { UserModel } from '@prisma/models';
 import { User } from './models/user.model';
@@ -9,7 +11,10 @@ import { UpdateDto } from './dtos/update.dto';
 
 @Resolver(() => User)
 export class UsersResolver {
-  constructor(private userService: UsersService) {}
+  constructor(
+    private userService: UsersService,
+    private accountDeletionService: AccountDeletionService,
+  ) {}
 
   @Public()
   @Mutation(() => User, { name: 'signup' })
@@ -21,7 +26,9 @@ export class UsersResolver {
 
   @Query(() => User, { name: 'profile' })
   async getProfile(@CurrentUser() user: UserModel) {
-    return this.userService.findOneByEmail(user.email);
+    const found = await this.userService.findOneByEmail(user.email);
+    if (!found) throw new UnauthorizedException('USER_NOT_FOUND');
+    return found;
   }
 
   @Mutation(() => User, { name: 'editProfile' })
@@ -30,5 +37,11 @@ export class UsersResolver {
     @Args('data') updateDto: UpdateDto,
   ) {
     return this.userService.edit(user, updateDto);
+  }
+
+  @Mutation(() => Boolean, { name: 'deleteAccount' })
+  async deleteAccount(@CurrentUser() user: UserModel): Promise<boolean> {
+    await this.accountDeletionService.deleteAccount(user.id);
+    return true;
   }
 }
