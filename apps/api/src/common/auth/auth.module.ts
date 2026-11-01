@@ -14,6 +14,11 @@ import { OAuthCodeStore } from './oauth-code.store';
 import { SocialLinkStore } from './social-link.store';
 import { OAuthStateService } from './oauth-state';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import {
+  AppleIdentityService,
+  appleJwksProvider,
+} from './apple/apple-identity.service';
+import { AppleTokenClient } from './apple/apple-token.client';
 
 config();
 
@@ -41,6 +46,9 @@ config();
     OAuthCodeStore,
     SocialLinkStore,
     OAuthStateService,
+    appleJwksProvider,
+    AppleIdentityService,
+    AppleTokenClient,
   ],
 })
 export class AuthModule {}

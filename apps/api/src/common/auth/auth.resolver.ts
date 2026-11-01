@@ -1,18 +1,25 @@
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { Public } from '@common/decorators/setMetadata';
 import { LoginDto, LoginToken } from './dtos/login.dto';
 import { AuthService } from './auth.service';
 import { OAuthCodeStore } from './oauth-code.store';
 import { SocialLinkStore } from './social-link.store';
 import { CurrentUser } from '@common/decorators/getCurrentUser';
+import { AppleLoginInput, AppleLoginResult } from './dtos/apple-login.dto';
+import { AppleIdentityService } from './apple/apple-identity.service';
+import { AppleTokenClient } from './apple/apple-token.client';
 
 @Resolver()
 export class AuthResolver {
+  private readonly logger = new Logger(AuthResolver.name);
+
   constructor(
     private authService: AuthService,
     private codeStore: OAuthCodeStore,
     private linkStore: SocialLinkStore,
+    private appleIdentity: AppleIdentityService,
+    private appleTokenClient: AppleTokenClient,
   ) {}
 
   @Public()
@@ -62,6 +69,44 @@ export class AuthResolver {
       pending.provider,
       password,
     );
+  }
+
+  // Sign in with Apple(iOS): identityToken 검증 → 소셜 로그인 판별 → Apple refresh token 보관.
+  @Public()
+  @Mutation(() => AppleLoginResult)
+  async appleLogin(
+    @Args('input') input: AppleLoginInput,
+  ): Promise<AppleLoginResult> {
+    const { email } = await this.appleIdentity.verify(input.identityToken);
+    const result = await this.authService.resolveOAuthLogin(
+      { email, name: input.name ?? undefined, provider: 'apple' },
+      input.platform ?? undefined,
+    );
+
+    // 같은 이메일이 다른 방식으로 가입돼 있음: 웹 콜백과 같은 규칙으로 연동 티켓 또는 연동 불가.
+    if (result.kind === 'link_required') {
+      if (!result.canPasswordLink) {
+        throw new UnauthorizedException('ACCOUNT_EXISTS');
+      }
+      const linkTicket = this.linkStore.issue({
+        email: result.email,
+        provider: result.provider,
+      });
+      return { token: null, linkTicket, provider: result.provider };
+    }
+
+    // 계정 삭제 시 revoke용 refresh token. 교환 실패가 로그인을 막지는 않는다.
+    try {
+      const appleRefreshToken = await this.appleTokenClient.exchangeCode(
+        input.authorizationCode,
+      );
+      await this.authService.saveAppleRefreshToken(email, appleRefreshToken);
+    } catch (error) {
+      this.logger.error(
+        `Apple authorization code exchange failed: ${(error as Error).message}`,
+      );
+    }
+    return { token: result.token, linkTicket: null, provider: 'apple' };
   }
 
   @Mutation(() => Boolean)

@@ -99,7 +99,10 @@ export class AuthService {
    * REST 콜백에서 호출되므로 예외를 던지지 않고 결과 객체로 반환한다
    * (전역 ExceptionFilter가 GraphQL 전용이라 REST 예외는 응답이 안 나감).
    */
-  async resolveOAuthLogin(inputUser: OAuthUser): Promise<OAuthLoginResult> {
+  async resolveOAuthLogin(
+    inputUser: OAuthUser,
+    platform = 'web',
+  ): Promise<OAuthLoginResult> {
     const user = await this.prismaService.user.findUnique({
       where: { email: inputUser.email },
     });
@@ -116,13 +119,19 @@ export class AuthService {
           name: inputUser.name || inputUser.email,
         },
       });
-      return { kind: 'authenticated', token: await this.issueSession(created, true) };
+      return {
+        kind: 'authenticated',
+        token: await this.issueSession(created, true, platform),
+      };
     }
 
     // 이미 이 provider로 로그인 가능한 계정 → 바로 인증(필요 시 providers 자가 보정).
     if (this.linkedProviders(user).has(inputUser.provider)) {
       await this.ensureProviderLinked(user, inputUser.provider);
-      return { kind: 'authenticated', token: await this.issueSession(user, true) };
+      return {
+        kind: 'authenticated',
+        token: await this.issueSession(user, true, platform),
+      };
     }
 
     // 미연동: 연동이 필요하다. local 비밀번호가 있어야 비밀번호 확인으로 연동 가능.
@@ -133,6 +142,18 @@ export class AuthService {
       canPasswordLink: this.linkedProviders(user).has('local'),
       existingProviders: [...this.linkedProviders(user)],
     };
+  }
+
+  /**
+   * Apple refresh token을 저장한다(계정 삭제 시 revoke용).
+   * 교환을 건너뛴/실패한 경우(null)에는 기존 값을 지우지 않는다.
+   */
+  async saveAppleRefreshToken(email: string, refreshToken: string | null) {
+    if (!refreshToken) return;
+    await this.prismaService.user.update({
+      where: { email },
+      data: { appleRefreshToken: refreshToken },
+    });
   }
 
   /**
