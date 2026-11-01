@@ -1,0 +1,110 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  needsRefresh,
+  parseStoredToken,
+  refreshTokens,
+  REFRESH_MARGIN_MS,
+} from './token-refresh';
+
+const NOW = 1_800_000_000_000;
+
+describe('needsRefresh', () => {
+  it('만료까지 60초보다 많이 남았으면 false', () => {
+    expect(needsRefresh({ expiresAt: NOW + REFRESH_MARGIN_MS + 1 }, NOW)).toBe(false);
+  });
+
+  it('만료까지 정확히 60초 남았으면 true', () => {
+    expect(needsRefresh({ expiresAt: NOW + REFRESH_MARGIN_MS }, NOW)).toBe(true);
+  });
+
+  it('60초 이내면 true', () => {
+    expect(needsRefresh({ expiresAt: NOW + 1_000 }, NOW)).toBe(true);
+  });
+
+  it('이미 만료됐으면 true', () => {
+    expect(needsRefresh({ expiresAt: NOW - 1 }, NOW)).toBe(true);
+  });
+
+  it('expiresAt이 숫자가 아니면 true(갱신 시도)', () => {
+    expect(needsRefresh({ expiresAt: Number.NaN }, NOW)).toBe(true);
+  });
+});
+
+describe('parseStoredToken', () => {
+  it('유효한 쿠키 JSON을 파싱한다', () => {
+    const raw = JSON.stringify({ accessToken: 'a', refreshToken: 'r', expiresAt: NOW });
+    expect(parseStoredToken(raw)).toEqual({ accessToken: 'a', refreshToken: 'r', expiresAt: NOW });
+  });
+
+  it('깨진 값이나 필드 누락이면 null', () => {
+    expect(parseStoredToken(undefined)).toBeNull();
+    expect(parseStoredToken('not-json')).toBeNull();
+    expect(parseStoredToken(JSON.stringify({ accessToken: 'a' }))).toBeNull();
+  });
+});
+
+describe('refreshTokens', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubFetch(response: { ok?: boolean; body?: unknown } | Error) {
+    const fetchMock = vi.fn(async () => {
+      if (response instanceof Error) throw response;
+      return {
+        ok: response.ok ?? true,
+        json: async () => response.body,
+      } as Response;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('성공하면 새 토큰과 ms 단위 expiresAt을 돌려준다', async () => {
+    const fetchMock = stubFetch({
+      body: {
+        data: {
+          refreshToken: {
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 900,
+            refreshExpiresIn: 604800,
+          },
+        },
+      },
+    });
+
+    const result = await refreshTokens('http://api.test', 'old-refresh', NOW);
+
+    expect(result).toEqual({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresAt: NOW + 900 * 1000,
+      refreshExpiresIn: 604800,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://api.test/graphql');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.variables).toEqual({ refreshToken: 'old-refresh' });
+    expect(body.query).toContain('refreshToken(refreshToken: $refreshToken)');
+  });
+
+  it('GraphQL 에러(UNAUTHENTICATED)면 null', async () => {
+    stubFetch({
+      body: { data: null, errors: [{ message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } }] },
+    });
+    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
+  });
+
+  it('HTTP 실패면 null', async () => {
+    stubFetch({ ok: false, body: {} });
+    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
+  });
+
+  it('네트워크 에러면 null', async () => {
+    stubFetch(new Error('ECONNREFUSED'));
+    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
+  });
+});

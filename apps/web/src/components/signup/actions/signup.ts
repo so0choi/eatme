@@ -19,6 +19,9 @@ const schema = z
     confirmPassword: z.string(),
     phone: z.string().optional(),
     name: z.string(),
+    agreeTerms: z.literal('on', {
+      error: '서비스 이용약관 및 개인정보 수집·이용에 동의해 주세요.',
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: '비밀번호가 일치하지 않습니다.',
@@ -41,6 +44,7 @@ export async function signUp(_: any, formData: FormData) {
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
     phone: formData.get('phone'),
+    agreeTerms: formData.get('agreeTerms'),
   };
 
   const validatedFields = schema.safeParse(rawFormData);
@@ -61,6 +65,8 @@ export async function signUp(_: any, formData: FormData) {
     password,
     phone,
     provider: 'local',
+    // 필수 약관 체크박스가 체크된 경우에만 스키마 검증을 통과하므로 항상 true.
+    agreeTerms: true,
   };
 
   try {
