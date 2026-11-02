@@ -64,7 +64,8 @@ export const PROFILE: TypedDocumentNode<{ profile: Profile }, Record<string, nev
   }
 `;
 
-export const LOGOUT: TypedDocumentNode<{ logout: boolean }, { refreshToken: string }> = gql`
+// 로그아웃도 갱신 링크를 거치지 않고 client.ts에서 fetch로 보낸다(보낼 시점의 최신 토큰 사용).
+export const LOGOUT_MUTATION = `
   mutation Logout($refreshToken: String!) {
     logout(refreshToken: $refreshToken)
   }

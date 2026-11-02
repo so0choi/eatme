@@ -6,9 +6,14 @@ describe('resolveRoute', () => {
     expect(resolveRoute({ hasToken: false, termsAgreed: true, onboarded: true })).toBe('/(auth)/login');
   });
 
-  it('약관 미동의면 동의 화면', () => {
+  it('약관 미동의(프로필로 확인)면 동의 화면', () => {
     expect(resolveRoute({ hasToken: true, termsAgreed: false, onboarded: true })).toBe('/(auth)/consent');
-    expect(resolveRoute({ hasToken: true, termsAgreed: null, onboarded: true })).toBe('/(auth)/consent');
+    expect(resolveRoute({ hasToken: true, termsAgreed: false, onboarded: false })).toBe('/(auth)/consent');
+  });
+
+  it('로그인 상태지만 프로필을 확인하지 못했으면 이동하지 않는다(null)', () => {
+    expect(resolveRoute({ hasToken: true, termsAgreed: null, onboarded: true })).toBeNull();
+    expect(resolveRoute({ hasToken: true, termsAgreed: null, onboarded: false })).toBeNull();
   });
 
   it('온보딩 미완이면 온보딩', () => {

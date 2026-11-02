@@ -1,6 +1,7 @@
 export type RouteState = {
   hasToken: boolean;
-  // null = 프로필에 동의 기록 없음(소셜 가입 직후 등)
+  // true/false = 프로필로 확인한 동의 여부(termsAgreedAt 유무).
+  // null = 프로필을 아직 확인하지 못함(오프라인 콜드 스타트, 일시 장애 등).
   termsAgreed: boolean | null;
   onboarded: boolean;
 };
@@ -8,9 +9,11 @@ export type RouteState = {
 export type GuardedRoute = '/(auth)/login' | '/(auth)/consent' | '/onboarding' | '/(tabs)';
 
 // 스펙 §3.2 라우팅 가드: 토큰 → 약관 동의 → 온보딩 순으로 확인한다.
-export function resolveRoute({ hasToken, termsAgreed, onboarded }: RouteState): GuardedRoute {
+// 로그인 상태인데 프로필을 확인하지 못했으면 null(판단 보류) — 이동하지 않고 프로필 재조회를 기다린다.
+export function resolveRoute({ hasToken, termsAgreed, onboarded }: RouteState): GuardedRoute | null {
   if (!hasToken) return '/(auth)/login';
-  if (termsAgreed !== true) return '/(auth)/consent';
+  if (termsAgreed === null) return null;
+  if (!termsAgreed) return '/(auth)/consent';
   if (!onboarded) return '/onboarding';
   return '/(tabs)';
 }

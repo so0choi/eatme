@@ -20,7 +20,8 @@ function RouteGuard() {
       termsAgreed: profile ? profile.termsAgreedAt != null : null,
       onboarded,
     });
-    if (!isRouteAllowed(target, segments)) router.replace(target);
+    // target이 null이면 프로필 확인 전(판단 보류)이라 현재 화면을 유지한다.
+    if (target && !isRouteAllowed(target, segments)) router.replace(target);
   }, [status, profile, onboarded, segments, router]);
 
   return <Stack screenOptions={{ headerShown: false }} />;

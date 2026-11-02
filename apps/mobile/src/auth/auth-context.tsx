@@ -1,7 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apolloClient, onSessionExpired } from '../api/client';
-import { LOGOUT, PROFILE, type Profile } from '../api/documents';
+import { AppState } from 'react-native';
+import { apolloClient, logoutSession, onSessionExpired } from '../api/client';
+import { PROFILE, type Profile } from '../api/documents';
 import { type LoginToken, toStoredToken, tokenStore } from './token-store';
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -37,9 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await apolloClient.query({ query: PROFILE, fetchPolicy: 'network-only' });
       setProfile(data?.profile ?? null);
       setStatus('signedIn');
-    } catch {
+    } catch (error) {
+      console.warn('[auth] 프로필 조회 실패', error);
       if (await tokenStore.get()) {
-        // 일시 장애: 로그인 상태는 유지하고 프로필만 비워 둔다.
+        // 일시 장애: 로그인 상태는 유지하고 프로필만 비워 둔다(라우팅 가드는 판단 보류).
         setProfile(null);
         setStatus('signedIn');
       } else {
@@ -70,6 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => onSessionExpired(() => void resetToSignedOut()), [resetToSignedOut]);
 
+  // 프로필을 확인하지 못한 채 로그인 상태면 앱이 포그라운드로 돌아올 때 다시 조회한다.
+  useEffect(() => {
+    if (status !== 'signedIn' || profile) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void loadProfile();
+    });
+    return () => sub.remove();
+  }, [status, profile, loadProfile]);
+
   const signIn = useCallback(
     async (token: LoginToken) => {
       await tokenStore.set(toStoredToken(token));
@@ -79,16 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    const token = await tokenStore.get();
-    if (token) {
-      try {
-        await apolloClient.mutate({
-          mutation: LOGOUT,
-          variables: { refreshToken: token.refreshToken },
-        });
-      } catch {
-        // best-effort: 서버 세션 삭제에 실패해도 기기에서는 로그아웃한다.
-      }
+    try {
+      await logoutSession();
+    } catch (error) {
+      // best-effort: 서버 세션 삭제에 실패해도 기기에서는 로그아웃한다.
+      console.warn('[auth] 서버 로그아웃 실패', error);
     }
     await tokenStore.clear();
     await resetToSignedOut();
