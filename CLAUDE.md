@@ -84,7 +84,8 @@ eat-me/
 7. **Sign in with Apple(iOS)**: `appleLogin` mutation(`@Public`)이 Apple JWKS로 `identityToken`(iss/aud=`APPLE_BUNDLE_ID`/만료)을 검증하고 `resolveOAuthLogin`을 재사용한다. 같은 이메일 충돌이면 `linkTicket`을 돌려줘 연동 화면으로 이동. `authorizationCode`를 Apple에 교환해 refresh token을 `User.appleRefreshToken`에 저장(계정 삭제 시 revoke). `APPLE_*` 키 미설정이면 교환은 건너뛰고 경고 로그.
 8. **약관**: `TERMS_VERSION = '2026-11'`. 이메일 가입은 `agreeTerms: true`가 필수(`createUserSchema`)이고 가입 시 저장, 소셜 가입자는 로그인 직후 consent 화면에서 `agreeTerms` mutation으로 동의.
 9. **rate-limit**: `@nestjs/throttler` 기반 가드로 login/signup/appleLogin/linkSocialAccount를 IP당 제한(`AUTH_THROTTLE_LIMIT`, `AUTH_THROTTLE_TTL_MS`). **refreshToken은 제한하지 않는다** — 웹은 Next 서버(단일 IP)가 모든 사용자의 갱신을 대신 호출하므로 IP 한도에 걸리면 대량 로그아웃이 난다. 클라이언트 IP는 `req.ip` 우선.
-   - **Rate-limit 설정(운영)**: 웹 서버(Apollo SSR 클라이언트 `ApolloClient.ts`, proxy의 토큰 갱신)는 들어온 요청의 `x-forwarded-for`(없으면 `x-real-ip`)를 API 호출에 `x-forwarded-for`로 전달한다(`apps/web/src/lib/forwarded-for.ts`). 운영에서는 API `TRUST_PROXY`가 **Next 서버와 그 앞 ingress/로드밸런서 홉을 신뢰**하도록 설정해야(예: 홉 수 `2` 또는 내부 CIDR 목록) Fastify `req.ip`가 브라우저 IP로 풀린다. 미설정이면 웹 경유 login/signup이 Next 서버 IP 하나로 묶여 함께 제한된다.
+   - **Rate-limit 설정(운영)**: 웹 서버(Apollo SSR 클라이언트 `ApolloClient.ts`, proxy의 토큰 갱신)는 웹 env `WEB_TRUST_PROXY=true`일 때만 브라우저 IP를 API에 `x-forwarded-for`로 전달한다. 이때 들어온 체인 전체가 아니라 **Next 바로 앞 ingress가 append한 맨 오른쪽 값**(없으면 ingress가 덮어쓴 `x-real-ip`) 하나만 넘긴다(`apps/web/src/lib/forwarded-for.ts`) — 왼쪽 값은 클라이언트가 위조할 수 있기 때문. Next가 ingress 없이 인터넷에 직접 노출되면 `WEB_TRUST_PROXY`를 켜지 말 것.
+     API `TRUST_PROXY`는 **내부 프록시 주소의 CIDR/IP 목록**(Next 서버 + ingress/LB)으로 설정한다. `true`나 홉 수는 쓰지 않는다 — 웹 경유(ingress→Next→API)와 모바일 직접(ingress→API) 경로의 홉 수가 달라 위조된 IP를 신뢰하게 될 수 있다. 미설정(`false`)이면 안전하지만 웹 경유 login/signup이 Next 서버 IP 하나로 묶여 함께 제한된다.
    - 웹 proxy는 갱신 결과가 `unauthenticated`(refresh token 무효)일 때만 쿠키 삭제 후 `/login`, 일시적 실패(`TOO_MANY_REQUESTS`·5xx·네트워크 등 `transient`)면 기존 쿠키로 통과시키고 다음 요청에서 재시도한다.
 
 ### 소셜 로그인 (네이버 / Google OAuth)
@@ -120,7 +121,7 @@ eat-me/
 2. 기존 DB가 `prisma db push`로 동기화돼 왔다면(마이그레이션 이력 없음) 이전 마이그레이션들을 baseline 처리: 각 기존 마이그레이션에 대해 `pnpm --filter eatme-back exec prisma migrate resolve --applied <migration_name>`.
 3. **staging에서 먼저** `pnpm --filter eatme-back exec prisma migrate deploy` → 검증 후 운영에 같은 명령.
 4. 토큰 형식(`typ`/`sid` 클레임)이 바뀌어 **기존 토큰은 모두 무효** → 배포 후 모든 사용자 1회 재로그인.
-5. 운영 api env 확인(`apps/api/.env.example` 참고): `JWT_REFRESH_SECRET`(JWT_SECRET과 다른 값), `TRUST_PROXY`(Next 서버·ingress 홉 신뢰), `API_BASE_URL`(https), `WEB_BASE_URL`(CORS용 정확한 웹 origin), `MOBILE_REDIRECT_URI`, `APPLE_BUNDLE_ID`/`APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`, `EXPO_ACCESS_TOKEN`.
+5. 운영 api env 확인(`apps/api/.env.example` 참고): `JWT_REFRESH_SECRET`(JWT_SECRET과 다른 값), `TRUST_PROXY`(Next 서버·ingress 내부 CIDR 목록 — 홉 수/true 금지), `API_BASE_URL`(https), `WEB_BASE_URL`(CORS용 정확한 웹 origin), `MOBILE_REDIRECT_URI`, `APPLE_BUNDLE_ID`/`APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`, `EXPO_ACCESS_TOKEN`.
 
 #### 푸시 알림 (유통기한)
 
@@ -136,12 +137,12 @@ api (`apps/api/.dev.env` — `apps/api/.env.example`을 복사해 채운다; 비
 - URL: `WEB_BASE_URL`, `API_BASE_URL`(콜백·리다이렉트 대상), `MOBILE_REDIRECT_URI`(기본 `eatme://`)
 - 소셜: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`(리디렉션 URI `http://localhost:4000/auth/google/callback`), `NAVER_CLIENT_ID`/`NAVER_CLIENT_SECRET`(Callback `http://localhost:4000/auth/naver/callback`)
 - Apple: `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`(.p8 내용)
-- 보안/운영: `TRUST_PROXY`(true/false/홉 수/CIDR 목록), `AUTH_THROTTLE_LIMIT`, `AUTH_THROTTLE_TTL_MS`
+- 보안/운영: `TRUST_PROXY`(false 또는 내부 프록시 CIDR/IP 목록), `AUTH_THROTTLE_LIMIT`, `AUTH_THROTTLE_TTL_MS`
 - 푸시: `EXPO_ACCESS_TOKEN`
 - appConfig: `APP_MIN_VERSION`, `APP_LATEST_VERSION`, `IOS_STORE_URL`, `ANDROID_STORE_URL`, `SUPPORT_EMAIL`
 - 기타: `YOUTUBE_API_KEY`
 
-web: `NEXT_PUBLIC_API_BASE_URL`(기본 `http://localhost:4000`).
+web: `NEXT_PUBLIC_API_BASE_URL`(기본 `http://localhost:4000`), `WEB_TRUST_PROXY`(서버 전용, 앞단 ingress가 있을 때만 `true`).
 mobile: `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_WEB_BASE_URL`(정책 페이지 링크), `EXPO_PUBLIC_SENTRY_DSN`(없으면 Sentry 생략), `APP_BUNDLE_ID`(app.config), `SENTRY_ORG`/`SENTRY_PROJECT`(소스맵 업로드).
 
 **알려진 한계 / TODO**:
