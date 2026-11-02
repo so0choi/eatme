@@ -1,6 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
-import { maybeAskPushPermission, setPushPromptPresenter } from './ask-permission';
+import { render } from '@testing-library/react-native';
+import { createElement } from 'react';
+import { useAuth } from '../auth/auth-context';
+import { maybeAskPushPermission, PushPromptHost, setPushPromptPresenter } from './ask-permission';
 import { registerForPush } from './register';
 
 jest.mock('expo-secure-store', () => ({
@@ -10,6 +13,7 @@ jest.mock('expo-secure-store', () => ({
 jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn() }));
 jest.mock('./register', () => ({ registerForPush: jest.fn() }));
 jest.mock('../auth/auth-context', () => ({ useAuth: jest.fn() }));
+jest.mock('../ui', () => ({ Button: () => null }));
 
 const getItem = SecureStore.getItemAsync as jest.Mock;
 const setItem = SecureStore.setItemAsync as jest.Mock;
@@ -64,5 +68,30 @@ describe('maybeAskPushPermission', () => {
     setPushPromptPresenter(null);
     await maybeAskPushPermission();
     expect(setItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('PushPromptHost 시작 시 토큰 재등록', () => {
+  const mockedUseAuth = useAuth as jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    register.mockResolvedValue('registered');
+  });
+
+  it.each([
+    ['로그아웃', { status: 'signedOut', profile: null }],
+    ['로그인했지만 프로필 미확인', { status: 'signedIn', profile: null }],
+    ['로그인했지만 약관 미동의', { status: 'signedIn', profile: { termsAgreedAt: null } }],
+  ])('%s 상태면 등록하지 않는다', async (_, auth) => {
+    mockedUseAuth.mockReturnValue(auth);
+    await render(createElement(PushPromptHost));
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('로그인 + 약관 동의 상태면 권한 요청 없이 등록한다', async () => {
+    mockedUseAuth.mockReturnValue({ status: 'signedIn', profile: { termsAgreedAt: '2026-11-03T00:00:00.000Z' } });
+    await render(createElement(PushPromptHost));
+    expect(register).toHaveBeenCalledWith({ requestPermission: false });
   });
 });

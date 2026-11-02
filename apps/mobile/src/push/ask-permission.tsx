@@ -42,7 +42,9 @@ export async function maybeAskPushPermission(): Promise<void> {
 
 /** 푸시 사전 안내 시트 호스트. 루트 레이아웃(AuthProvider 안)에 한 번 마운트한다. */
 export function PushPromptHost() {
-  const { status } = useAuth();
+  const { status, profile } = useAuth();
+  // 약관 동의 전에는 푸시 토큰을 서버에 등록하지 않는다.
+  const consented = status === 'signedIn' && !!profile?.termsAgreedAt;
   const [resolve, setResolve] = useState<((accepted: boolean) => void) | null>(null);
 
   useEffect(() => {
@@ -52,13 +54,13 @@ export function PushPromptHost() {
     return () => setPushPromptPresenter(null);
   }, []);
 
-  // 로그인 상태로 시작하면 이미 허용된 권한에 한해 토큰을 다시 등록한다(토큰 교체 대비, 서버 멱등).
+  // 로그인·약관 동의 상태로 시작하면 이미 허용된 권한에 한해 토큰을 다시 등록한다(토큰 교체 대비, 서버 멱등).
   useEffect(() => {
-    if (status !== 'signedIn') return;
+    if (!consented) return;
     registerForPush({ requestPermission: false }).catch((error) => {
       console.warn('[push] 푸시 토큰 등록 실패', error);
     });
-  }, [status]);
+  }, [consented]);
 
   const answer = (accepted: boolean) => {
     resolve?.(accepted);
