@@ -1,5 +1,6 @@
 import { gql, type TypedDocumentNode } from '@apollo/client';
 import type { LoginToken } from '../auth/token-store';
+import type { CreateIngredientInput } from '../fridge/quick-add';
 
 // codegen은 API 서버가 떠 있어야 해서 모바일은 결과 타입을 수동으로 정의한다.
 
@@ -255,5 +256,17 @@ export const DISCARD_INGREDIENT: TypedDocumentNode<
 export const DELETE_INGREDIENT: TypedDocumentNode<{ deleteIngredient: boolean }, { id: number }> = gql`
   mutation DeleteIngredient($id: Int!) {
     deleteIngredient(id: $id)
+  }
+`;
+
+export const CREATE_INGREDIENT: TypedDocumentNode<
+  { createIngredient: { id: number; name: string } },
+  { input: CreateIngredientInput }
+> = gql`
+  mutation CreateIngredient($input: CreateIngredientInput!) {
+    createIngredient(input: $input) {
+      id
+      name
+    }
   }
 `;
