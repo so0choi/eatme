@@ -342,3 +342,31 @@ export const MONTHLY_INGREDIENT_WASTE: TypedDocumentNode<
     }
   }
 `;
+
+export const REGISTER_PUSH_TOKEN: TypedDocumentNode<
+  { registerPushToken: boolean },
+  { token: string; platform: Platform }
+> = gql`
+  mutation RegisterPushToken($token: String!, $platform: String!) {
+    registerPushToken(token: $token, platform: $platform)
+  }
+`;
+
+export const UPDATE_NOTIFICATION_SETTINGS: TypedDocumentNode<
+  { updateNotificationSettings: { id: string; pushEnabled: boolean; pushHour: number } },
+  { pushEnabled: boolean; pushHour: number }
+> = gql`
+  mutation UpdateNotificationSettings($pushEnabled: Boolean!, $pushHour: Int!) {
+    updateNotificationSettings(pushEnabled: $pushEnabled, pushHour: $pushHour) {
+      id
+      pushEnabled
+      pushHour
+    }
+  }
+`;
+
+export const DELETE_ACCOUNT: TypedDocumentNode<{ deleteAccount: boolean }, Record<string, never>> = gql`
+  mutation DeleteAccount {
+    deleteAccount
+  }
+`;

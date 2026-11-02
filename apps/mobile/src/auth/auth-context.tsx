@@ -13,6 +13,8 @@ type AuthContextValue = {
   onboarded: boolean;
   signIn: (token: LoginToken) => Promise<void>;
   signOut: () => Promise<void>;
+  // 서버 호출 없이 기기의 토큰·캐시만 지운다(계정 삭제 직후처럼 세션이 이미 없을 때).
+  clearLocalSession: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   markOnboarded: () => Promise<void>;
 };
@@ -89,6 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfile],
   );
 
+  const clearLocalSession = useCallback(async () => {
+    await tokenStore.clear();
+    await resetToSignedOut();
+  }, [resetToSignedOut]);
+
   const signOut = useCallback(async () => {
     try {
       await logoutSession();
@@ -96,9 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // best-effort: 서버 세션 삭제에 실패해도 기기에서는 로그아웃한다.
       console.warn('[auth] 서버 로그아웃 실패', error);
     }
-    await tokenStore.clear();
-    await resetToSignedOut();
-  }, [resetToSignedOut]);
+    await clearLocalSession();
+  }, [clearLocalSession]);
 
   const markOnboarded = useCallback(async () => {
     await SecureStore.setItemAsync(ONBOARDED_KEY, '1');
@@ -112,10 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onboarded,
       signIn,
       signOut,
+      clearLocalSession,
       refreshProfile: loadProfile,
       markOnboarded,
     }),
-    [status, profile, onboarded, signIn, signOut, loadProfile, markOnboarded],
+    [status, profile, onboarded, signIn, signOut, clearLocalSession, loadProfile, markOnboarded],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
