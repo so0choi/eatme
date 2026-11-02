@@ -114,6 +114,14 @@ eat-me/
 
 - 모바일 v1 마이그레이션: `apps/api/prisma/migrations/20261103000000_mobile_v1`(Session.platform, PushToken, User 약관/푸시/Apple 필드 등. `providers` 컬럼은 `ADD COLUMN IF NOT EXISTS`로 안전하게 추가). 운영 반영은 `pnpm --filter eatme-back exec prisma migrate deploy`. 로컬 개발 DB는 `prisma migrate dev`.
 
+**배포 체크리스트 (모바일 v1)**
+
+1. **DB 백업**을 먼저 뜬다.
+2. 기존 DB가 `prisma db push`로 동기화돼 왔다면(마이그레이션 이력 없음) 이전 마이그레이션들을 baseline 처리: 각 기존 마이그레이션에 대해 `pnpm --filter eatme-back exec prisma migrate resolve --applied <migration_name>`.
+3. **staging에서 먼저** `pnpm --filter eatme-back exec prisma migrate deploy` → 검증 후 운영에 같은 명령.
+4. 토큰 형식(`typ`/`sid` 클레임)이 바뀌어 **기존 토큰은 모두 무효** → 배포 후 모든 사용자 1회 재로그인.
+5. 운영 api env 확인(`apps/api/.env.example` 참고): `JWT_REFRESH_SECRET`(JWT_SECRET과 다른 값), `TRUST_PROXY`(Next 서버·ingress 홉 신뢰), `API_BASE_URL`(https), `WEB_BASE_URL`(CORS용 정확한 웹 origin), `MOBILE_REDIRECT_URI`, `APPLE_BUNDLE_ID`/`APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`, `EXPO_ACCESS_TOKEN`.
+
 #### 푸시 알림 (유통기한)
 
 - 앱이 `registerPushToken(token, platform)`로 현재 Session에 Expo 푸시 토큰을 연결(같은 token은 소유 세션 갱신). `updateNotificationSettings(pushEnabled, pushHour)`로 on/off·시각(KST 0~23, 기본 9) 설정, `profile`에 노출.
@@ -122,7 +130,7 @@ eat-me/
 
 #### 환경변수
 
-api (`apps/api/.dev.env`; 비밀값 미설정이어도 부팅되고 해당 기능만 비활성 + 경고 로그):
+api (`apps/api/.dev.env` — `apps/api/.env.example`을 복사해 채운다; 비밀값 미설정이어도 부팅되고 해당 기능만 비활성 + 경고 로그):
 
 - 필수: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`
 - URL: `WEB_BASE_URL`, `API_BASE_URL`(콜백·리다이렉트 대상), `MOBILE_REDIRECT_URI`(기본 `eatme://`)
