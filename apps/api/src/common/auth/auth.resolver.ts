@@ -31,7 +31,8 @@ export class AuthResolver {
   }
 
   // refresh token rotation: 유효한 세션이면 새 access/refresh를 발급하고 기존 세션 행을 교체한다.
-  @UseGuards(GqlThrottlerGuard)
+  // rate-limit 미적용: 웹은 Next 서버(단일 IP)가 모든 사용자의 갱신을 대신 호출하므로 IP 한도에 걸리면
+  // 대량 로그아웃이 난다. refresh token 자체가 추측 불가능한 서명 토큰이라 무차별 대입 위험이 낮다.
   @Public()
   @Mutation(() => LoginToken)
   async refreshToken(
