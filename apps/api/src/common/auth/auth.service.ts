@@ -165,6 +165,7 @@ export class AuthService {
     provider: string,
     password: string,
     appleRefreshToken?: string,
+    platform?: string,
   ) {
     const user = await this.prismaService.user.findUnique({ where: { email } });
     if (!user) {
@@ -176,7 +177,7 @@ export class AuthService {
     if (provider === 'apple') {
       await this.saveAppleRefreshToken(email, appleRefreshToken ?? null);
     }
-    return this.issueSession(user, true);
+    return this.issueSession(user, true, platform);
   }
 
   /** 계정에 연동된 인증수단 집합(원래 provider + providers 배열). */

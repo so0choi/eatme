@@ -8,6 +8,8 @@ export type PendingLink = {
   provider: string;
   /** Apple 로그인 충돌 시 미리 교환해 둔 Apple refresh token(연동 확정 시 저장). */
   appleRefreshToken?: string;
+  /** 연동 확정 시 발급할 세션의 platform(web|ios|android). 모르면 생략(기본 web). */
+  platform?: string;
 };
 
 type StoredEntry = {

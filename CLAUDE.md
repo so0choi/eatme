@@ -101,14 +101,14 @@ eat-me/
 
 `AuthService.resolveOAuthLogin`이 예외 대신 판별 결과(`authenticated` | `link_required`)를 반환한다. 같은 이메일이 다른 방식으로 이미 가입돼 있으면:
 
-- **기존 계정에 local 비밀번호가 있음** → 연동 티켓(`SocialLinkStore`, TTL 10분) 발급 → 웹 `/link?ticket=...&provider=...`로 리다이렉트 → 사용자가 **기존 비밀번호 입력**(`linkSocialAccount(ticket, password)` mutation) → 비밀번호로 소유권 확인 후 `User.providers`에 provider 추가 + 세션 발급 → `/dashboard`.
+- **기존 계정에 local 비밀번호가 있음** → 연동 티켓(`SocialLinkStore`, TTL 10분, 연동 후 발급할 세션 platform도 보관) 발급 → 웹 `/link?ticket=...&provider=...`로 리다이렉트 → 사용자가 **기존 비밀번호 입력**(`linkSocialAccount(ticket, password)` mutation) → 비밀번호로 소유권 확인 후 `User.providers`에 provider 추가 + 세션 발급 → `/dashboard`.
 - **순수 소셜 계정(비밀번호 없음)** → 비밀번호 확인 불가 → `/login?error=account_exists` 안내.
 - 로그인 가능한 인증수단은 `User.provider`(원 가입 방식) + `User.providers String[]`(연동된 방식)로 판별한다.
 
 #### OAuth 보안 (state nonce / PKCE)
 
 - authorize 요청의 `state`는 서명된 JWT(5분, `typ`은 OAuth state 전용)이며 그 안의 nonce를 **API 오리진 httpOnly 쿠키**에도 심는다. 콜백 가드(`createOAuthCallbackGuard`)가 passport보다 먼저 state 서명 + nonce 쿠키 일치를 검증하고, 제공자 취소(`?error=`)는 passport 전에 에러 리다이렉트로 처리한다.
-- **모바일**: `GET /auth/google?client=mobile&code_challenge=…`(PKCE S256, 43자 base64url 필수 — 없으면 `eatme://auth/callback?error=…`). 콜백은 `${MOBILE_REDIRECT_URI ?? 'eatme://'}auth/callback?code=…`(연동 필요 시 `…link?ticket=…&provider=…`)로 보내고, 앱이 `exchangeOAuthCode(code, codeVerifier)`로 교환한다. 네이버는 v1 앱 UI에 노출하지 않는다.
+- **모바일**: `GET /auth/google?client=mobile&code_challenge=…&platform=ios|android`(PKCE S256, 43자 base64url 필수 — 없으면 `eatme://auth/callback?error=…`. `platform`은 선택이며 state JWT에 실려 세션 platform이 된다. 웹 콜백 세션은 `web`). 콜백은 `${MOBILE_REDIRECT_URI ?? 'eatme://'}auth/callback?code=…`(연동 필요 시 `…link?ticket=…&provider=…`)로 보내고, 앱이 `exchangeOAuthCode(code, codeVerifier)`로 교환한다. 네이버는 v1 앱 UI에 노출하지 않는다.
 
 #### 마이그레이션 / 배포
 

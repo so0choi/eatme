@@ -90,10 +90,11 @@ describe('Apple login (e2e)', () => {
     expect(ctx.prisma.user.rows[0].appleRefreshToken).toBeNull();
   });
 
-  it('연동 티켓 + 기존 비밀번호로 연동하면 미리 교환한 Apple refresh token을 저장한다', async () => {
+  it('연동 티켓 + 기존 비밀번호로 연동하면 미리 교환한 Apple refresh token을 저장하고 ios 세션을 발급한다', async () => {
     await ctx.signupAndLogin('cook@eatme.test', 'password123');
     const login = await appleLogin({
       identityToken: await identityToken('cook@eatme.test'),
+      platform: 'ios',
     });
     expect(exchanged).toEqual(['auth-code']);
 
@@ -109,6 +110,9 @@ describe('Apple login (e2e)', () => {
     const user = ctx.prisma.user.rows[0];
     expect(user.providers).toContain('apple');
     expect(user.appleRefreshToken).toBe('apple-refresh-1');
+    // 가입 시 web 세션 1개 + 연동으로 발급된 ios 세션.
+    const sessions = ctx.prisma.session.rows;
+    expect(sessions.map((s) => s.platform)).toEqual(['web', 'ios']);
   });
 
   it('비밀번호 없는 소셜 계정과 충돌하면 ACCOUNT_EXISTS', async () => {

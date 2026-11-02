@@ -86,6 +86,32 @@ describe('OAuth redirect (e2e)', () => {
       },
     );
 
+    it('mobile + platform=ios면 state에 platform을 싣고, 허용되지 않은 값은 무시한다', async () => {
+      const ios = await start(
+        `/auth/google?client=mobile&code_challenge=${CHALLENGE}&platform=ios`,
+      );
+      expect(stateService().verifyWithCookie(ios.state!, ios.cookie)).toEqual({
+        client: 'mobile',
+        codeChallenge: CHALLENGE,
+        platform: 'ios',
+      });
+
+      const evil = await start(
+        `/auth/google?client=mobile&code_challenge=${CHALLENGE}&platform=web`,
+      );
+      expect(evil.res.statusCode).toBe(302);
+      expect(
+        stateService().verifyWithCookie(evil.state!, evil.cookie),
+      ).toEqual({ client: 'mobile', codeChallenge: CHALLENGE });
+    });
+
+    it('web 진입은 platform을 보내도 state에 싣지 않는다', async () => {
+      const { state, cookie } = await start('/auth/google?platform=ios');
+      expect(stateService().verifyWithCookie(state!, cookie)).toEqual({
+        client: 'web',
+      });
+    });
+
     it('client 미지정이면 web state', async () => {
       const { res, state, cookie } = await start('/auth/google');
       expect(res.statusCode).toBe(302);
@@ -195,14 +221,18 @@ describe('OAuth redirect (e2e)', () => {
 
   describe('콜백 성공 경로 + PKCE code 교환', () => {
     const reply = () => ({ header: jest.fn() }) as never;
-    const req = (client: 'web' | 'mobile', email = 'social@eatme.test') =>
+    const req = (
+      client: 'web' | 'mobile',
+      email = 'social@eatme.test',
+      platform?: 'ios' | 'android',
+    ) =>
       ({
         user: { email, name: '소셜', provider: 'google' },
         oauthCallback: {
           kind: 'ok',
           state:
             client === 'mobile'
-              ? { client, codeChallenge: CHALLENGE }
+              ? { client, codeChallenge: CHALLENGE, platform }
               : { client },
         },
       }) as never;
@@ -251,6 +281,64 @@ describe('OAuth redirect (e2e)', () => {
       expect(exchanged.data.exchangeOAuthCode.accessToken).toEqual(
         expect.any(String),
       );
+    });
+  });
+
+  describe('세션 platform', () => {
+    const reply = () => ({ header: jest.fn() }) as never;
+    const callbackReq = (
+      state: Record<string, unknown>,
+      email = 'cook@eatme.test',
+    ) =>
+      ({
+        user: { email, name: '소셜', provider: 'google' },
+        oauthCallback: { kind: 'ok', state },
+      }) as never;
+    const LINK = `mutation($ticket: String!, $password: String!) {
+      linkSocialAccount(ticket: $ticket, password: $password) { accessToken }
+    }`;
+    const ticketOf = (url: string) =>
+      new URL(url.replace('eatme://', 'http://x/')).searchParams.get('ticket')!;
+
+    it.each([
+      ['web 콜백', { client: 'web' }, 'web'],
+      [
+        'mobile(android) 콜백',
+        { client: 'mobile', codeChallenge: CHALLENGE, platform: 'android' },
+        'android',
+      ],
+    ])('%s → 바로 인증된 세션 platform', async (_, state, expected) => {
+      await ctx.app
+        .get(AuthController)
+        .googleCallback(callbackReq(state, 'new@eatme.test'), reply());
+      expect(ctx.prisma.session.rows.map((s) => s.platform)).toEqual([
+        expected,
+      ]);
+    });
+
+    it.each([
+      ['web 콜백', { client: 'web' }, 'web'],
+      [
+        'mobile(ios) 콜백',
+        { client: 'mobile', codeChallenge: CHALLENGE, platform: 'ios' },
+        'ios',
+      ],
+    ])('%s 연동 → linkSocialAccount 세션 platform', async (_, state, expected) => {
+      await ctx.signupAndLogin('cook@eatme.test', 'password123');
+      const res = await ctx.app
+        .get(AuthController)
+        .googleCallback(callbackReq(state), reply());
+      expect(res.url).toMatch(/link\?ticket=/);
+
+      const linked = await ctx.gql(LINK, {
+        ticket: ticketOf(res.url),
+        password: 'password123',
+      });
+      expect(linked.errors).toBeUndefined();
+      expect(ctx.prisma.session.rows.map((s) => s.platform)).toEqual([
+        'web',
+        expected,
+      ]);
     });
   });
 });

@@ -6,6 +6,10 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 export const OAUTH_CLIENTS = ['web', 'mobile'] as const;
 export type OAuthClient = (typeof OAUTH_CLIENTS)[number];
 
+/** 모바일 진입 시 앱이 알려주는 기기 플랫폼(세션 platform으로 쓰인다). */
+export const MOBILE_PLATFORMS = ['ios', 'android'] as const;
+export type MobilePlatform = (typeof MOBILE_PLATFORMS)[number];
+
 // access/refresh(typ: 'access' | 'refresh')와 절대 혼용되지 않도록 별도 타입 클레임을 둔다.
 // JwtStrategy는 typ !== 'access'를 거부하므로 state를 Bearer로 써도 인증되지 않는다.
 const TOKEN_TYPE_OAUTH_STATE = 'oauth_state';
@@ -24,6 +28,8 @@ export interface OAuthStateClaims {
   client: OAuthClient;
   /** mobile 전용 PKCE S256 challenge. */
   codeChallenge?: string;
+  /** mobile 전용 기기 플랫폼(앱이 보낸 경우만). */
+  platform?: MobilePlatform;
 }
 
 function sha256Base64Url(value: string): string {
@@ -73,6 +79,7 @@ export class OAuthStateService {
   sign(
     client: OAuthClient,
     codeChallenge?: string,
+    platform?: MobilePlatform,
   ): { state: string; nonce: string } {
     const nonce = randomBytes(32).toString('base64url');
     const state = this.jwtService.sign(
@@ -81,6 +88,7 @@ export class OAuthStateService {
         client,
         nonceHash: sha256Base64Url(nonce),
         ...(codeChallenge ? { codeChallenge } : {}),
+        ...(platform ? { platform } : {}),
       },
       { secret: this.secret(), expiresIn: OAUTH_STATE_TTL_SECONDS },
     );
@@ -101,6 +109,7 @@ export class OAuthStateService {
       client?: unknown;
       nonceHash?: unknown;
       codeChallenge?: unknown;
+      platform?: unknown;
     };
     try {
       payload = this.jwtService.verify(state, { secret: this.secret() });
@@ -123,7 +132,12 @@ export class OAuthStateService {
       ) {
         return null;
       }
-      return { client, codeChallenge: payload.codeChallenge };
+      const platform = MOBILE_PLATFORMS.find((p) => p === payload.platform);
+      return {
+        client,
+        codeChallenge: payload.codeChallenge,
+        ...(platform ? { platform } : {}),
+      };
     }
     return { client };
   }

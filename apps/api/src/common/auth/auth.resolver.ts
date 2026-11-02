@@ -74,6 +74,7 @@ export class AuthResolver {
       pending.provider,
       password,
       pending.appleRefreshToken,
+      pending.platform,
     );
   }
 
@@ -105,6 +106,7 @@ export class AuthResolver {
         email: result.email,
         provider: result.provider,
         appleRefreshToken: appleRefreshToken ?? undefined,
+        platform: input.platform ?? undefined,
       });
       return { token: null, linkTicket, provider: result.provider };
     }

@@ -107,9 +107,11 @@ export class AuthController {
         ),
       );
     }
+    const isMobile = query.client === 'mobile';
     const { state, nonce } = this.stateService.sign(
       query.client,
-      query.client === 'mobile' ? query.code_challenge : undefined,
+      isMobile ? query.code_challenge : undefined,
+      isMobile ? query.platform : undefined,
     );
     reply.header('set-cookie', this.stateService.nonceCookie(nonce));
     return this.redirect(this.buildAuthorizeUrl(provider, state));
@@ -188,9 +190,11 @@ export class AuthController {
 
     // REST 경로라 예외를 던지면 전역 ExceptionFilter(GraphQL 전용)가 응답을 못 보내 멈춘다.
     // resolveOAuthLogin은 예외 대신 판별 결과를 반환하므로 그에 따라 리다이렉트한다.
+    // 세션 platform: 웹 콜백은 web, 모바일은 앱이 진입 시 보낸 ios|android(모르면 기본값).
+    const platform = state.client === 'mobile' ? state.platform : 'web';
     let result: Awaited<ReturnType<AuthService['resolveOAuthLogin']>>;
     try {
-      result = await this.authService.resolveOAuthLogin(oauthUser);
+      result = await this.authService.resolveOAuthLogin(oauthUser, platform);
     } catch {
       return { kind: 'error', error: 'oauth' };
     }
@@ -203,6 +207,7 @@ export class AuthController {
       const ticket = this.linkStore.issue({
         email: result.email,
         provider: result.provider,
+        platform,
       });
       return { kind: 'link_required', provider: result.provider, ticket };
     }
