@@ -26,12 +26,12 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 모든 색상은 커스텀 CSS 토큰으로 사용한다. 하드코딩된 `emerald-*`, `slate-*` 클래스 대신 아래 토큰을 사용할 것.
 
-#### Primary (Freshness — 진한 포레스트 그린)
+#### Primary (Freshness — 밝은 비비드 그린)
 
-- `text-primary` / `bg-primary` → `#006e1c`
+- `text-primary` / `bg-primary` → `#16a34a` (런타임 `:root --primary`; globals.css 기준)
 - `bg-on-primary` / `text-on-primary` → `#ffffff` (primary 배경 위 텍스트·버튼)
-- `bg-primary-container` → `#4caf50` (연한 그린)
-- `text-on-primary-container` / `bg-on-primary-container` → `#002204`
+- `bg-primary-container` → `#86efac` (연한 그린)
+- `text-on-primary-container` / `bg-on-primary-container` → `#052e16`
 
 #### Secondary (Organization — 블루)
 

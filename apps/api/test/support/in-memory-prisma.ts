@@ -7,10 +7,17 @@ type Where = Record<string, any>;
 function matches(row: Row, where: Where = {}): boolean {
   return Object.entries(where).every(([key, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
-      if ('in' in cond) return cond.in.includes(row[key]);
-      if ('notIn' in cond) return !cond.notIn.includes(row[key]);
-      if ('gte' in cond) return row[key] >= cond.gte;
-      if ('lt' in cond) return row[key] < cond.lt;
+      const ops = ['in', 'notIn', 'gte', 'gt', 'lte', 'lt'].filter((op) => op in cond);
+      if (ops.length) {
+        return ops.every((op) => {
+          if (op === 'in') return cond.in.includes(row[key]);
+          if (op === 'notIn') return !cond.notIn.includes(row[key]);
+          if (op === 'gte') return row[key] >= cond.gte;
+          if (op === 'gt') return row[key] > cond.gt;
+          if (op === 'lte') return row[key] <= cond.lte;
+          return row[key] < cond.lt;
+        });
+      }
     }
     return row[key] === cond;
   });
@@ -66,11 +73,45 @@ class Table {
     this.rows = this.rows.filter((r) => !matches(r, where));
     return { count: before - this.rows.length };
   };
+  upsert = async ({ where, create, update }: { where: Where; create: Record<string, any>; update: Record<string, any> }) => {
+    const row = this.rows.find((r) => matches(r, where));
+    return row ? applyData(row, update) : this.create({ data: create });
+  };
+}
+
+/** 부모 행이 삭제되면 FK(onDelete: Cascade)로 묶인 자식 행도 지운다. */
+function cascadeDeletes(parent: Table, child: Table, foreignKey: string) {
+  const { delete: del, deleteMany } = parent;
+  const removeChildren = (ids: number[]) => {
+    child.rows = child.rows.filter((r) => !ids.includes(r[foreignKey]));
+  };
+  parent.delete = async (args) => {
+    const row = await del(args);
+    removeChildren([row.id]);
+    return row;
+  };
+  parent.deleteMany = async (args = {}) => {
+    const ids = parent.rows.filter((r) => matches(r, args.where)).map((r) => r.id);
+    const result = await deleteMany(args);
+    removeChildren(ids);
+    return result;
+  };
 }
 
 export class InMemoryPrisma {
-  user = new Table(() => ({ provider: 'local', providers: [], phone: null }));
-  session = new Table();
+  user = new Table(() => ({
+    provider: 'local',
+    providers: [],
+    phone: null,
+    termsAgreedAt: null,
+    termsVersion: null,
+    appleRefreshToken: null,
+    pushEnabled: true,
+    pushHour: 9,
+    lastExpiryPushAt: null,
+  }));
+  session = new Table(() => ({ platform: 'web' }));
+  pushToken = new Table();
   ingredient = new Table(() => ({
     status: 'FRESH',
     price: null,
@@ -80,7 +121,14 @@ export class InMemoryPrisma {
     category: null,
     imageUrl: null,
   }));
+  review = new Table();
+  recipe = new Table(() => ({ authorId: null }));
   ingredientDisposal = new Table(() => ({ discardedAt: new Date() }));
+
+  constructor() {
+    cascadeDeletes(this.session, this.pushToken, 'sessionId');
+    cascadeDeletes(this.user, this.pushToken, 'userId');
+  }
 
   async $connect() {}
   async $disconnect() {}
@@ -90,7 +138,7 @@ export class InMemoryPrisma {
   }
 
   reset() {
-    for (const table of [this.user, this.session, this.ingredient, this.ingredientDisposal]) {
+    for (const table of [this.user, this.session, this.pushToken, this.ingredient, this.ingredientDisposal, this.review, this.recipe]) {
       table.rows = [];
     }
   }

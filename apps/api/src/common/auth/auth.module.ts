@@ -12,13 +12,20 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { NaverStrategy } from './strategies/naver.strategy';
 import { OAuthCodeStore } from './oauth-code.store';
 import { SocialLinkStore } from './social-link.store';
+import { OAuthStateService } from './oauth-state';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import {
+  AppleIdentityService,
+  appleJwksProvider,
+} from './apple/apple-identity.service';
+import { AppleModule } from './apple/apple.module';
 
 config();
 
 @Module({
   imports: [
     UsersModule,
+    AppleModule,
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({
@@ -39,6 +46,9 @@ config();
     NaverStrategy,
     OAuthCodeStore,
     SocialLinkStore,
+    OAuthStateService,
+    appleJwksProvider,
+    AppleIdentityService,
   ],
 })
 export class AuthModule {}

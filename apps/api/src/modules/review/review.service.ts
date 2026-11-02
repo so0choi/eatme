@@ -20,6 +20,8 @@ export class ReviewService {
             id: true,
             email: true,
             name: true,
+            pushEnabled: true,
+            pushHour: true,
           },
         },
       },

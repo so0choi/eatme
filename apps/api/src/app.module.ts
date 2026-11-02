@@ -8,7 +8,10 @@ import { AuthModule } from '@common/auth/auth.module';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { GqlAuthGuard } from '@common/auth/guards/gql.guard';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { positiveNumber } from '@common/guards/client-key';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppConfigModule } from '@modules/app-config/app-config.module';
 import { RequestLoggingInterceptor } from '@common/interceptors/request-logging.interceptor';
 import { PrismaModule } from './database/prisma.module';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
@@ -18,6 +21,7 @@ import { ReviewModule } from '@modules/review/review.module';
 import { IngredientModule } from '@modules/ingredient/ingredient.module';
 import { RecipeModule } from '@modules/recipe/recipe.module';
 import { YoutubeModule } from '@modules/youtube/youtube.module';
+import { NotificationModule } from '@modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -25,6 +29,20 @@ import { YoutubeModule } from '@modules/youtube/youtube.module';
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       envFilePath: '.dev.env',
+    }),
+    // 인증 mutation 전용 rate-limit(GqlThrottlerGuard를 건 곳에서만 적용). 한도는 env로 조정 가능.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: positiveNumber(config.get('AUTH_THROTTLE_TTL_MS'), 60_000),
+            limit: positiveNumber(config.get('AUTH_THROTTLE_LIMIT'), 10),
+          },
+        ],
+        setHeaders: false,
+      }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
@@ -47,6 +65,8 @@ import { YoutubeModule } from '@modules/youtube/youtube.module';
     IngredientModule,
     RecipeModule,
     YoutubeModule,
+    AppConfigModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

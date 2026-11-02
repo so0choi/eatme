@@ -4,7 +4,7 @@ import CommunitySection, { CommunityPost } from '@/components/sections/Community
 import { getClient } from '@/app/ApolloClient';
 import { GET_ALL_RECIPES } from '@/queries/recipe.queries';
 import { Recipe, RecipeDifficulty } from 'gql/graphql';
-import { pickRandom } from '@/components/recipe/recipe-match';
+import { pickRandom } from '@eatme/core';
 
 const heroStats = [
   { label: '관리 중인 식재료', value: '12만+' },

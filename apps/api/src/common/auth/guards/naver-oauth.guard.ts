@@ -1,5 +1,3 @@
-import { Injectable } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { createOAuthCallbackGuard } from './oauth-callback.guard';
 
-@Injectable()
-export class NaverOauthGuard extends AuthGuard('naver') {}
+export const NaverOauthGuard = createOAuthCallbackGuard('naver');

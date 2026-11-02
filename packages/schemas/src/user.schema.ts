@@ -6,6 +6,7 @@ export const createUserSchema = z.object({
   name: z.string().min(1, '이름을 입력해주세요'),
   provider: z.string().optional(),
   phone: z.string().optional(),
+  agreeTerms: z.literal(true, { error: '약관에 동의해주세요' }),
 });
 
 export const loginSchema = z.object({

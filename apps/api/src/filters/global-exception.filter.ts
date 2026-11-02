@@ -15,6 +15,7 @@ export class ExceptionFilter implements GqlExceptionFilter {
         403: 'FORBIDDEN',
         404: 'NOT_FOUND',
         409: 'CONFLICT',
+        429: 'TOO_MANY_REQUESTS',
       };
       return new GraphQLError(exception.message, {
         extensions: { code: codeMap[status] ?? 'BAD_USER_INPUT', status },

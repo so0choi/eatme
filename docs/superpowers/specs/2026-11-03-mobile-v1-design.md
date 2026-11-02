@@ -150,3 +150,18 @@ Apple Developer·Google Play·Expo 계정, 번들 ID 확정, APNs 키/FCM(EAS가
 
 ## 7. DB 마이그레이션
 로컬 DB가 없어 `migrate dev`를 실행할 수 없다. 스키마 변경은 `prisma migrate diff --from-schema-datamodel <이전> --to-schema-datamodel <신규> --script`로 SQL을 생성해 `prisma/migrations/<timestamp>_mobile_v1/migration.sql`로 커밋한다. CLAUDE.md에 "마이그레이션 필요"로 남아 있던 `User.providers`는 기존 마이그레이션에 없으므로 같은 파일에 `ADD COLUMN IF NOT EXISTS`로 포함한다.
+
+## 8. 구현 중 변경된 결정
+
+스펙 본문과 다를 때 아래가 우선한다.
+
+- **@eatme/core 빌드**: TS 소스 직접 소비가 아니라 `@eatme/schemas`와 같은 `tsc` → `dist/`(CommonJS) 빌드. 루트 `verify`가 schemas 직후 core를 먼저 build. web `transpilePackages` 불필요, api(`nest build`)는 TS 소스를 런타임에 못 읽으므로 일반 의존성으로 사용, mobile Metro는 dist 사용.
+- **토큰 `typ` 클레임**: access/refresh/OAuth state JWT에 서로 다른 `typ`을 두어 혼용을 막는다(JwtStrategy는 `typ !== 'access'` 거부).
+- **access token에 `sid`**: `JwtStrategy.validate`가 해당 Session 존재를 확인 → 로그아웃·계정 삭제 시 access도 즉시 무효(요청당 DB 조회 1회).
+- **refresh mutation에 platform 인자 없음**: rotation은 기존 세션의 platform을 유지.
+- **OAuth CSRF(§2.3 보강)**: state 안의 nonce를 API 오리진 httpOnly 쿠키에 바인딩하고 콜백 가드가 passport 전에 검증. 제공자 취소(`?error=`)도 passport 전에 에러 리다이렉트. 모바일은 PKCE(S256) 추가(`code_challenge` 필수, `exchangeOAuthCode(code, codeVerifier)`). iOS 인증 세션에서 쿠키 유지 여부는 실기기 확인 필요.
+- **rate-limit 클라이언트 키**: `req.ip` 우선(trustProxy 시 Fastify가 신뢰 프록시를 제거한 IP). `TRUST_PROXY` env로 설정.
+- **refreshToken은 rate-limit 제외(§5 변경)**: 웹은 Next 서버 단일 IP가 모든 사용자의 갱신을 대신 호출하므로 IP 한도가 대량 로그아웃을 부른다. 웹 서버는 API 호출에 `x-forwarded-for`로 브라우저 IP를 전달하고(운영 `TRUST_PROXY` 필요), proxy는 `UNAUTHENTICATED`일 때만 로그아웃하고 일시 실패는 기존 쿠키로 통과시킨다.
+- **소셜 로그인 세션 platform**: 모바일 진입 `GET /auth/{provider}`에 선택 `platform=ios|android`를 받아 state JWT에 싣는다. 웹 콜백은 `web`. 연동 티켓(`SocialLinkStore`)도 platform을 보관해 `linkSocialAccount` 세션에 쓴다(Apple은 `appleLogin` input.platform).
+- **남은 한계**: 웹 오리진으로 돌아오는 OAuth 홉은 브라우저에 미바인딩, `OAuthCodeStore`/`SocialLinkStore`는 단일 인스턴스, 푸시 cron은 다중 인스턴스에서 중복 발송 가능.
+

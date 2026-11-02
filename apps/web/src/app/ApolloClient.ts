@@ -4,8 +4,9 @@ import {
   ApolloClient,
   InMemoryCache,
 } from '@apollo/client-integration-nextjs';
-import { cookies } from 'next/headers';
-import { TOKEN_COOKIE } from '@/lib/definitions';
+import { cookies, headers as requestHeaders } from 'next/headers';
+import { API_BASE_URL, TOKEN_COOKIE } from '@/lib/definitions';
+import { forwardedFor } from '@/lib/forwarded-for';
 import { SetContextLink } from '@apollo/client/link/context';
 import { ErrorLink } from '@apollo/client/link/error';
 import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
@@ -28,19 +29,24 @@ const errorLink = new ErrorLink(({ error, operation }) => {
 
 export const { getClient, query, PreloadQuery } = registerApolloClient(() => {
   const httpLink = new HttpLink({
-    uri: 'http://localhost:4000/graphql',
+    uri: `${API_BASE_URL}/graphql`,
   });
 
+  // Next 서버가 브라우저 대신 API를 호출하므로 accessToken과 함께 브라우저 IP(x-forwarded-for)를
+  // 전달한다(API rate-limit이 Next 서버 IP 하나로 묶이지 않도록. API는 TRUST_PROXY 설정 필요).
   const authLink = new SetContextLink(async ({ headers }) => {
     const cookieStore = await cookies();
     const raw = cookieStore.get(TOKEN_COOKIE)?.value;
     const accessToken = raw ? JSON.parse(raw).accessToken : null;
+    const clientIp = forwardedFor(await requestHeaders());
 
-    if (accessToken) {
-      return {
-        headers: { ...headers, authorization: `Bearer ${accessToken}` },
-      };
-    }
+    return {
+      headers: {
+        ...headers,
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+        ...(clientIp ? { 'x-forwarded-for': clientIp } : {}),
+      },
+    };
   });
 
   return new ApolloClient({

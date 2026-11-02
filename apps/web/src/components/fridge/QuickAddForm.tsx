@@ -22,8 +22,8 @@ import {
   parseIngredientInput,
   formatQuantity,
   formatPrice,
-} from './parse-ingredient-input';
-import { findShelfLifeRule, getCategory, type StorageZone } from './shelf-life-rules';
+} from '@eatme/core';
+import { findShelfLifeRule, getCategory, type StorageZone } from '@eatme/core';
 import { CATEGORY_OPTIONS } from './filter-options';
 import { quickAddIngredients, type QuickAddState } from './actions/quick-add-ingredients';
 

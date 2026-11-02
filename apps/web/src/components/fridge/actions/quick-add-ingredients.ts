@@ -6,8 +6,8 @@ import { getClient } from '@/app/ApolloClient';
 import { CREATE_INGREDIENT } from '@/queries/fridge.queries';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { parseIngredientInput } from '../parse-ingredient-input';
-import { findShelfLifeRule, getRecommendedUseBy, type StorageZone } from '../shelf-life-rules';
+import { parseIngredientInput } from '@eatme/core';
+import { findShelfLifeRule, getRecommendedUseBy, type StorageZone } from '@eatme/core';
 
 // 파서가 뽑은 3개 값(품목·수량·가격)만 검증. 보관/유통기한/카테고리는 추정으로 채운다.
 const itemSchema = z.object({

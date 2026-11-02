@@ -81,7 +81,7 @@ const SignupForm = () => {
           />
         </div>
         <PreferenceTagPicker tags={PREFERENCE_TAGS} />
-        <ConsentCheckboxGroup />
+        <ConsentCheckboxGroup error={fieldError('agreeTerms')} />
         <Button type="submit">회원가입 완료</Button>
       </Form>
       <SocialSignupButtons />

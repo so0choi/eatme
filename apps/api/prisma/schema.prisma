@@ -30,6 +30,13 @@ model User {
   ingredients Ingredient[]
   ingredientDisposals IngredientDisposal[]
   recipes Recipe[]
+  termsAgreedAt     DateTime?
+  termsVersion      String?
+  appleRefreshToken String?
+  pushEnabled       Boolean   @default(true)
+  pushHour          Int       @default(9)
+  lastExpiryPushAt  DateTime?
+  pushTokens        PushToken[]
 }
 
 model Review {
@@ -49,6 +56,19 @@ model Session {
   refreshToken String @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+  platform     String   @default("web")
+  pushTokens   PushToken[]
+}
+
+model PushToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  platform  String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  createdAt DateTime @default(now())
 }
 
 model Ingredient {

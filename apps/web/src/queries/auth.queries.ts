@@ -20,8 +20,8 @@ export const SIGN_UP_MUTATION = gql`
 `;
 
 export const LOGOUT_MUTATION = gql`
-  mutation Logout {
-    logout
+  mutation Logout($refreshToken: String!) {
+    logout(refreshToken: $refreshToken)
   }
 `;
 
@@ -43,6 +43,26 @@ export const LINK_SOCIAL_ACCOUNT_MUTATION = gql`
       refreshToken
       expiresIn
       refreshExpiresIn
+    }
+  }
+`;
+
+export const PROFILE_TERMS_QUERY = gql`
+  query ProfileTerms {
+    profile {
+      id
+      termsAgreedAt
+      termsVersion
+    }
+  }
+`;
+
+export const AGREE_TERMS_MUTATION = gql`
+  mutation AgreeTerms {
+    agreeTerms {
+      id
+      termsAgreedAt
+      termsVersion
     }
   }
 `;

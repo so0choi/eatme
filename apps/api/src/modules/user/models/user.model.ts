@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType('User')
 export class User {
@@ -13,4 +13,16 @@ export class User {
 
   @Field({ nullable: true })
   provider?: string;
+
+  @Field({ nullable: true })
+  termsAgreedAt?: Date;
+
+  @Field({ nullable: true })
+  termsVersion?: string;
+
+  @Field()
+  pushEnabled: boolean;
+
+  @Field(() => Int)
+  pushHour: number;
 }
