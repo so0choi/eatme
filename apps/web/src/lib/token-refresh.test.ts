@@ -48,16 +48,25 @@ describe('refreshTokens', () => {
     vi.unstubAllGlobals();
   });
 
-  function stubFetch(response: { ok?: boolean; body?: unknown } | Error) {
+  function stubFetch(response: { status?: number; body?: unknown } | Error) {
     const fetchMock = vi.fn(async () => {
       if (response instanceof Error) throw response;
+      const status = response.status ?? 200;
       return {
-        ok: response.ok ?? true,
-        json: async () => response.body,
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => {
+          if (response.body === undefined) throw new SyntaxError('Unexpected end of JSON');
+          return response.body;
+        },
       } as Response;
     });
     vi.stubGlobal('fetch', fetchMock);
     return fetchMock;
+  }
+
+  function gqlError(code: string) {
+    return { data: null, errors: [{ message: code, extensions: { code } }] };
   }
 
   it('성공하면 새 토큰과 ms 단위 expiresAt을 돌려준다', async () => {
@@ -74,37 +83,79 @@ describe('refreshTokens', () => {
       },
     });
 
-    const result = await refreshTokens('http://api.test', 'old-refresh', NOW);
+    const result = await refreshTokens('http://api.test', 'old-refresh', { now: NOW });
 
     expect(result).toEqual({
-      accessToken: 'new-access',
-      refreshToken: 'new-refresh',
-      expiresAt: NOW + 900 * 1000,
-      refreshExpiresIn: 604800,
+      ok: true,
+      token: {
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+        expiresAt: NOW + 900 * 1000,
+        refreshExpiresIn: 604800,
+      },
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('http://api.test/graphql');
     expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>)['x-forwarded-for']).toBeUndefined();
     const body = JSON.parse(init.body as string);
     expect(body.variables).toEqual({ refreshToken: 'old-refresh' });
     expect(body.query).toContain('refreshToken(refreshToken: $refreshToken)');
   });
 
-  it('GraphQL 에러(UNAUTHENTICATED)면 null', async () => {
-    stubFetch({
-      body: { data: null, errors: [{ message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } }] },
+  it('forwardedFor가 있으면 x-forwarded-for 헤더로 보낸다', async () => {
+    const fetchMock = stubFetch(new Error('stop'));
+    await refreshTokens('http://api.test', 'old', { now: NOW, forwardedFor: '203.0.113.7' });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)['x-forwarded-for']).toBe('203.0.113.7');
+  });
+
+  it('GraphQL UNAUTHENTICATED면 unauthenticated', async () => {
+    stubFetch({ body: gqlError('UNAUTHENTICATED') });
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'unauthenticated',
     });
-    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
   });
 
-  it('HTTP 실패면 null', async () => {
-    stubFetch({ ok: false, body: {} });
-    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
+  it('TOO_MANY_REQUESTS면 transient', async () => {
+    stubFetch({ body: gqlError('TOO_MANY_REQUESTS') });
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'transient',
+    });
   });
 
-  it('네트워크 에러면 null', async () => {
+  it('그 밖의 GraphQL 에러면 transient', async () => {
+    stubFetch({ body: gqlError('INTERNAL_ERROR') });
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'transient',
+    });
+  });
+
+  it('HTTP 5xx면 transient', async () => {
+    stubFetch({ status: 502 });
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'transient',
+    });
+  });
+
+  it('응답이 JSON이 아니면 transient', async () => {
+    stubFetch({ status: 404 });
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'transient',
+    });
+  });
+
+  it('네트워크 에러면 transient', async () => {
     stubFetch(new Error('ECONNREFUSED'));
-    await expect(refreshTokens('http://api.test', 'old', NOW)).resolves.toBeNull();
+    await expect(refreshTokens('http://api.test', 'old', { now: NOW })).resolves.toEqual({
+      ok: false,
+      reason: 'transient',
+    });
   });
 });

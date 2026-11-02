@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { login } from './actions/login';
 import { useActionState } from 'react';
 import { Button } from '@/components/ui/Button';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+import { API_BASE_URL } from '@/lib/definitions';
 
 const LoginForm = ({ notice }: { notice?: string }) => {
   const [state, action, pending] = useActionState(login, undefined);

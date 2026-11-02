@@ -1,25 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TOKEN_COOKIE } from '@/lib/definitions';
+import { API_BASE_URL, TOKEN_COOKIE } from '@/lib/definitions';
+import { forwardedFor } from '@/lib/forwarded-for';
 import {
-  API_BASE_URL,
   needsRefresh,
   parseStoredToken,
   refreshTokens,
-  type RefreshedToken,
+  type RefreshResult,
 } from '@/lib/token-refresh';
 
 // 같은 refresh token으로 거의 동시에 들어온 요청(병렬 RSC/prefetch 등)이 rotation 때문에
 // 서로를 무효화하지 않도록, 진행 중이거나 방금 끝난 갱신 결과를 잠시 공유한다(단일 인스턴스 기준).
 const RECENT_REFRESH_TTL_MS = 10_000;
-const inflightRefreshes = new Map<string, Promise<RefreshedToken | null>>();
+const inflightRefreshes = new Map<string, Promise<RefreshResult>>();
 
-function refreshOnce(refreshToken: string): Promise<RefreshedToken | null> {
+function refreshOnce(request: NextRequest, refreshToken: string): Promise<RefreshResult> {
   const existing = inflightRefreshes.get(refreshToken);
   if (existing) return existing;
 
-  const promise = refreshTokens(API_BASE_URL, refreshToken);
+  const promise = refreshTokens(API_BASE_URL, refreshToken, {
+    forwardedFor: forwardedFor(request.headers),
+  });
   inflightRefreshes.set(refreshToken, promise);
-  promise.finally(() => {
+  promise.then((result) => {
+    // 일시적 실패는 다음 요청이 바로 재시도하도록 공유하지 않는다.
+    if (!result.ok && result.reason === 'transient') {
+      inflightRefreshes.delete(refreshToken);
+      return;
+    }
     setTimeout(() => inflightRefreshes.delete(refreshToken), RECENT_REFRESH_TTL_MS);
   });
   return promise;
@@ -44,10 +51,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const refreshed = await refreshOnce(token.refreshToken);
-  if (!refreshed) {
-    return redirectToLogin(request);
+  const result = await refreshOnce(request, token.refreshToken);
+  if (!result.ok) {
+    // refresh token이 무효일 때만 로그아웃한다. 일시적 실패(rate-limit·API 장애 등)에
+    // 쿠키를 지우면 대량 로그아웃이 나므로 기존 쿠키로 통과시키고 다음 요청에서 다시 시도한다.
+    return result.reason === 'unauthenticated'
+      ? redirectToLogin(request)
+      : NextResponse.next();
   }
+  const refreshed = result.token;
 
   const value = JSON.stringify({
     accessToken: refreshed.accessToken,

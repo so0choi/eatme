@@ -79,11 +79,13 @@ eat-me/
 2. **refresh rotation**: `refreshToken(refreshToken)` mutation(`@Public`)이 유효한 세션이면 새 access/refresh를 발급하고 같은 Session 행을 새 refresh로 교체한다(platform 유지, mutation에 platform 인자 없음). 무효/만료는 `UNAUTHENTICATED`.
 3. `logout(refreshToken)`은 해당 기기 세션만 삭제(그 세션의 PushToken도 cascade 삭제). 전체 삭제는 `deleteAccount`(즉시 삭제, Apple 연동 계정은 revoke 시도)뿐.
 4. 웹은 토큰을 `bt-token` 쿠키(httpOnly, JSON `{accessToken, refreshToken, expiresAt}`)에 저장 — `apps/web/src/lib/definitions.ts`의 `TOKEN_COOKIE`. Apollo SSR 클라이언트(`apps/web/src/app/ApolloClient.ts`)가 쿠키에서 accessToken을 읽어 `Authorization: Bearer` 헤더로 주입.
-5. `apps/web/src/proxy.ts`(Next.js 16 Proxy)가 `/dashboard`, `/fridge`, `/recipes`, `/insights` 등 보호 경로에서 쿠키 부재 시 `/login`, `expiresAt`이 지났거나 60초 이내면 `refreshToken`으로 갱신해 쿠키를 다시 심고, 실패하면 쿠키 삭제 후 `/login`.
+5. `apps/web/src/proxy.ts`(Next.js 16 Proxy)가 `/dashboard`, `/fridge`, `/recipes`, `/insights` 등 보호 경로에서 쿠키 부재 시 `/login`, `expiresAt`이 지났거나 60초 이내면 `refreshToken`으로 갱신해 쿠키를 다시 심고, refresh token이 무효(`UNAUTHENTICATED`)면 쿠키 삭제 후 `/login`(일시적 실패는 통과, 아래 9 참고).
 6. **모바일**: 토큰은 `expo-secure-store`. Apollo 갱신 링크가 `UNAUTHENTICATED`를 받으면 single-flight로 refresh 후 원 요청을 재시도하고, 실패하면 토큰 삭제 → 로그인 화면. 라우팅 가드: 토큰 없음 → 로그인, 약관 미동의 → consent, 온보딩 미완 → onboarding.
 7. **Sign in with Apple(iOS)**: `appleLogin` mutation(`@Public`)이 Apple JWKS로 `identityToken`(iss/aud=`APPLE_BUNDLE_ID`/만료)을 검증하고 `resolveOAuthLogin`을 재사용한다. 같은 이메일 충돌이면 `linkTicket`을 돌려줘 연동 화면으로 이동. `authorizationCode`를 Apple에 교환해 refresh token을 `User.appleRefreshToken`에 저장(계정 삭제 시 revoke). `APPLE_*` 키 미설정이면 교환은 건너뛰고 경고 로그.
 8. **약관**: `TERMS_VERSION = '2026-11'`. 이메일 가입은 `agreeTerms: true`가 필수(`createUserSchema`)이고 가입 시 저장, 소셜 가입자는 로그인 직후 consent 화면에서 `agreeTerms` mutation으로 동의.
-9. **rate-limit**: `@nestjs/throttler` 기반 가드로 login/signup/refreshToken/appleLogin/linkSocialAccount를 IP당 제한(`AUTH_THROTTLE_LIMIT`, `AUTH_THROTTLE_TTL_MS`). 클라이언트 IP는 `req.ip` 우선이며 프록시 뒤에서는 `TRUST_PROXY` 설정 필요.
+9. **rate-limit**: `@nestjs/throttler` 기반 가드로 login/signup/appleLogin/linkSocialAccount를 IP당 제한(`AUTH_THROTTLE_LIMIT`, `AUTH_THROTTLE_TTL_MS`). **refreshToken은 제한하지 않는다** — 웹은 Next 서버(단일 IP)가 모든 사용자의 갱신을 대신 호출하므로 IP 한도에 걸리면 대량 로그아웃이 난다. 클라이언트 IP는 `req.ip` 우선.
+   - **Rate-limit 설정(운영)**: 웹 서버(Apollo SSR 클라이언트 `ApolloClient.ts`, proxy의 토큰 갱신)는 들어온 요청의 `x-forwarded-for`(없으면 `x-real-ip`)를 API 호출에 `x-forwarded-for`로 전달한다(`apps/web/src/lib/forwarded-for.ts`). 운영에서는 API `TRUST_PROXY`가 **Next 서버와 그 앞 ingress/로드밸런서 홉을 신뢰**하도록 설정해야(예: 홉 수 `2` 또는 내부 CIDR 목록) Fastify `req.ip`가 브라우저 IP로 풀린다. 미설정이면 웹 경유 login/signup이 Next 서버 IP 하나로 묶여 함께 제한된다.
+   - 웹 proxy는 갱신 결과가 `unauthenticated`(refresh token 무효)일 때만 쿠키 삭제 후 `/login`, 일시적 실패(`TOO_MANY_REQUESTS`·5xx·네트워크 등 `transient`)면 기존 쿠키로 통과시키고 다음 요청에서 재시도한다.
 
 ### 소셜 로그인 (네이버 / Google OAuth)
 

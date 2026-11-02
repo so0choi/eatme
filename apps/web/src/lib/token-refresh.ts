@@ -11,9 +11,6 @@ export type RefreshedToken = StoredToken & { refreshExpiresIn: number };
 // access token 만료 60초 전부터 갱신한다.
 export const REFRESH_MARGIN_MS = 60_000;
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-
 export function needsRefresh(
   token: { expiresAt: number },
   now: number = Date.now(),
@@ -63,39 +60,67 @@ type RefreshTokenResponse = {
       refreshExpiresIn: number;
     } | null;
   } | null;
-  errors?: unknown[];
+  errors?: { extensions?: { code?: unknown } }[];
+};
+
+// 갱신 결과. unauthenticated는 refresh token 자체가 무효(재로그인 필요),
+// transient는 일시적 실패(rate-limit·서버/네트워크 오류 등)라 기존 쿠키를 유지해야 한다.
+export type RefreshResult =
+  | { ok: true; token: RefreshedToken }
+  | { ok: false; reason: 'unauthenticated' | 'transient' };
+
+export type RefreshOptions = {
+  now?: number;
+  // 브라우저 IP 전달용 x-forwarded-for 값(Next 서버가 대신 호출하므로).
+  forwardedFor?: string;
 };
 
 // API refreshToken mutation을 호출한다(rotation: 기존 refresh token은 1회용).
-// apiUrl은 API 베이스 URL(예: http://localhost:4000). 실패 시 null.
+// apiUrl은 API 베이스 URL(예: http://localhost:4000).
 export async function refreshTokens(
   apiUrl: string,
   refreshToken: string,
-  now: number = Date.now(),
-): Promise<RefreshedToken | null> {
+  { now = Date.now(), forwardedFor }: RefreshOptions = {},
+): Promise<RefreshResult> {
+  const transient = { ok: false, reason: 'transient' } as const;
   try {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (forwardedFor) headers['x-forwarded-for'] = forwardedFor;
+
     const res = await fetch(`${apiUrl}/graphql`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         query: REFRESH_TOKEN_MUTATION,
         variables: { refreshToken },
       }),
       cache: 'no-store',
     });
-    if (!res.ok) return null;
+    if (res.status >= 500) return transient;
 
-    const json = (await res.json()) as RefreshTokenResponse;
+    const json = (await res.json().catch(() => null)) as RefreshTokenResponse | null;
+    if (!json) return transient;
+
+    if (json.errors?.length) {
+      const unauthenticated = json.errors.some(
+        (error) => error?.extensions?.code === 'UNAUTHENTICATED',
+      );
+      return unauthenticated ? { ok: false, reason: 'unauthenticated' } : transient;
+    }
+
     const token = json.data?.refreshToken;
-    if (json.errors?.length || !token) return null;
+    if (!res.ok || !token) return transient;
 
     return {
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt: now + token.expiresIn * 1000,
-      refreshExpiresIn: token.refreshExpiresIn,
+      ok: true,
+      token: {
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        expiresAt: now + token.expiresIn * 1000,
+        refreshExpiresIn: token.refreshExpiresIn,
+      },
     };
   } catch {
-    return null;
+    return transient;
   }
 }
