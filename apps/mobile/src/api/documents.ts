@@ -156,3 +156,104 @@ export const AGREE_TERMS: TypedDocumentNode<
     }
   }
 `;
+
+export type StorageType = 'FRIDGE' | 'FREEZER' | 'PANTRY';
+export type IngredientStatus = 'FRESH' | 'EXPIRING_SOON' | 'EXPIRED' | 'USED' | 'DISCARDED';
+export type IngredientUnit = 'EA' | 'G' | 'KG' | 'ML' | 'L';
+export type IngredientCategory =
+  | 'MEAT'
+  | 'SEAFOOD'
+  | 'VEGETABLE'
+  | 'FRUIT'
+  | 'DAIRY'
+  | 'EGG'
+  | 'GRAIN'
+  | 'SAUCE'
+  | 'DRINK'
+  | 'SNACK'
+  | 'ETC';
+
+export type Ingredient = {
+  id: number;
+  name: string;
+  price: number | null;
+  quantity: number | null;
+  unit: IngredientUnit | null;
+  expireAt: string | null;
+  storage: StorageType;
+  status: IngredientStatus;
+  category: IngredientCategory | null;
+  imageUrl: string | null;
+  createdAt: string;
+};
+
+export type UpdateIngredientInput = {
+  id: number;
+  name?: string;
+  price?: number | null;
+  quantity?: number | null;
+  unit?: IngredientUnit | null;
+  expireAt?: string | null;
+  category?: IngredientCategory | null;
+  storage?: StorageType;
+  status?: IngredientStatus;
+};
+
+const INGREDIENT_FIELDS = `
+  id
+  name
+  price
+  quantity
+  unit
+  expireAt
+  storage
+  status
+  category
+  imageUrl
+  createdAt
+`;
+
+export const GET_ALL_INGREDIENTS: TypedDocumentNode<{ getAllIngredients: Ingredient[] }, Record<string, never>> = gql`
+  query GetAllIngredients {
+    getAllIngredients {
+      ${INGREDIENT_FIELDS}
+    }
+  }
+`;
+
+export const GET_INGREDIENT: TypedDocumentNode<{ ingredient: Ingredient }, { id: number }> = gql`
+  query Ingredient($id: Int!) {
+    ingredient(id: $id) {
+      ${INGREDIENT_FIELDS}
+    }
+  }
+`;
+
+export const UPDATE_INGREDIENT: TypedDocumentNode<
+  { updateIngredient: Ingredient },
+  { input: UpdateIngredientInput }
+> = gql`
+  mutation UpdateIngredient($input: UpdateIngredientInput!) {
+    updateIngredient(input: $input) {
+      ${INGREDIENT_FIELDS}
+    }
+  }
+`;
+
+export const DISCARD_INGREDIENT: TypedDocumentNode<
+  { discardIngredient: { id: number; lossAmount: number } },
+  { id: number }
+> = gql`
+  mutation DiscardIngredient($id: Int!) {
+    discardIngredient(id: $id) {
+      id
+      lossAmount
+    }
+  }
+`;
+
+export const DELETE_INGREDIENT: TypedDocumentNode<{ deleteIngredient: boolean }, { id: number }> = gql`
+  mutation DeleteIngredient($id: Int!) {
+    deleteIngredient(id: $id)
+  }
+`;
