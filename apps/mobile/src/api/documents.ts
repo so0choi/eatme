@@ -270,3 +270,75 @@ export const CREATE_INGREDIENT: TypedDocumentNode<
     }
   }
 `;
+
+export type RecipeDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
+
+export type RecipeIngredientRow = {
+  id: number;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  optional: boolean | null;
+};
+
+export type RecipeSummary = {
+  id: number;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  servings: number | null;
+  cookTime: number | null;
+  difficulty: RecipeDifficulty | null;
+  ingredients: RecipeIngredientRow[];
+};
+
+export type RecipeDetail = RecipeSummary & { steps: string[] };
+
+const RECIPE_FIELDS = `
+  id
+  title
+  description
+  imageUrl
+  servings
+  cookTime
+  difficulty
+  ingredients {
+    id
+    name
+    quantity
+    unit
+    optional
+  }
+`;
+
+export const GET_ALL_RECIPES: TypedDocumentNode<{ getAllRecipes: RecipeSummary[] }, Record<string, never>> = gql`
+  query AllRecipes {
+    getAllRecipes {
+      ${RECIPE_FIELDS}
+    }
+  }
+`;
+
+export const GET_RECIPE: TypedDocumentNode<{ recipe: RecipeDetail }, { id: number }> = gql`
+  query Recipe($id: Int!) {
+    recipe(id: $id) {
+      ${RECIPE_FIELDS}
+      steps
+    }
+  }
+`;
+
+export type MonthlyWaste = { month: string; totalLoss: number; discardedCount: number };
+
+export const MONTHLY_INGREDIENT_WASTE: TypedDocumentNode<
+  { monthlyIngredientWaste: MonthlyWaste[] },
+  { months?: number | null }
+> = gql`
+  query MonthlyIngredientWaste($months: Int) {
+    monthlyIngredientWaste(months: $months) {
+      month
+      totalLoss
+      discardedCount
+    }
+  }
+`;

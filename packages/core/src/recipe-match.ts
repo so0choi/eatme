@@ -7,6 +7,14 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/\s/g, '');
 }
 
+/** 재료명 비교: 공백/대소문자 무시 + 부분 일치(양방향). 빈 문자열은 일치하지 않는다. */
+export function namesMatch(a: string, b: string): boolean {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (!na || !nb) return false;
+  return na.includes(nb) || nb.includes(na);
+}
+
 export interface RecipeMatch {
   have: string[];
   missing: string[];
@@ -15,13 +23,11 @@ export interface RecipeMatch {
 
 /** 필수(optional 아닌) 재료 기준으로 보유/부족 재료와 보유 비율을 계산한다. */
 export function matchRecipe(recipe: MatchableRecipe, ingredientNames: string[]): RecipeMatch {
-  const fridge = ingredientNames.map(normalize).filter(Boolean);
   const required = recipe.ingredients.filter((i) => !i.optional);
   const have: string[] = [];
   const missing: string[] = [];
   for (const ri of required) {
-    const name = normalize(ri.name);
-    (fridge.some((f) => f.includes(name) || name.includes(f)) ? have : missing).push(ri.name);
+    (ingredientNames.some((f) => namesMatch(f, ri.name)) ? have : missing).push(ri.name);
   }
   return { have, missing, haveRatio: required.length === 0 ? 0 : have.length / required.length };
 }

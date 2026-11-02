@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchRecipe, rankRecipes } from './recipe-match';
+import { matchRecipe, namesMatch, rankRecipes } from './recipe-match';
 
 const r = (id: string, names: string[], optional: string[] = []) => ({
   id,
@@ -25,5 +25,18 @@ describe('rankRecipes', () => {
     const ranked = rankRecipes([none, halfBig, half, full], ['감자', '당근']);
     expect(ranked.map((x) => x.id)).toEqual(['full', 'half', 'halfBig', 'none']);
     expect(ranked[0].match.haveRatio).toBe(1);
+  });
+});
+
+describe('namesMatch', () => {
+  it('공백·대소문자 무시, 양방향 부분 일치', () => {
+    expect(namesMatch('다진 대파', '대파')).toBe(true);
+    expect(namesMatch('대파', '다진 대파')).toBe(true);
+    expect(namesMatch('Egg', 'egg')).toBe(true);
+  });
+  it('다르거나 빈 이름은 불일치', () => {
+    expect(namesMatch('감자', '양파')).toBe(false);
+    expect(namesMatch('', '감자')).toBe(false);
+    expect(namesMatch('  ', '  ')).toBe(false);
   });
 });
