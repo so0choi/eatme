@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
-import Index from '../app/index';
+import Index from '../app/(tabs)/index';
 
 describe('Index', () => {
   it('@eatme/core 파서로 해석한 재료 이름을 보여준다', async () => {
