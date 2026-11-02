@@ -82,3 +82,77 @@ export const APP_CONFIG: TypedDocumentNode<{ appConfig: AppConfig }, Record<stri
     }
   }
 `;
+
+export const SIGNUP: TypedDocumentNode<
+  { signup: { id: string } },
+  { createUserInput: { email: string; password: string; name: string; agreeTerms: true } }
+> = gql`
+  mutation Signup($createUserInput: CreateUserInput!) {
+    signup(createUserInput: $createUserInput) {
+      id
+    }
+  }
+`;
+
+export const EXCHANGE_OAUTH_CODE: TypedDocumentNode<
+  { exchangeOAuthCode: LoginToken },
+  { code: string; codeVerifier?: string | null }
+> = gql`
+  mutation ExchangeOAuthCode($code: String!, $codeVerifier: String) {
+    exchangeOAuthCode(code: $code, codeVerifier: $codeVerifier) {
+      ${LOGIN_TOKEN_FIELDS}
+    }
+  }
+`;
+
+export const LINK_SOCIAL_ACCOUNT: TypedDocumentNode<
+  { linkSocialAccount: LoginToken },
+  { ticket: string; password: string }
+> = gql`
+  mutation LinkSocialAccount($ticket: String!, $password: String!) {
+    linkSocialAccount(ticket: $ticket, password: $password) {
+      ${LOGIN_TOKEN_FIELDS}
+    }
+  }
+`;
+
+export type AppleLoginResult = {
+  token: LoginToken | null;
+  linkTicket: string | null;
+  provider: string | null;
+};
+
+export const APPLE_LOGIN: TypedDocumentNode<
+  { appleLogin: AppleLoginResult },
+  {
+    input: {
+      identityToken: string;
+      authorizationCode: string;
+      name?: string | null;
+      platform: 'ios';
+    };
+  }
+> = gql`
+  mutation AppleLogin($input: AppleLoginInput!) {
+    appleLogin(input: $input) {
+      token {
+        ${LOGIN_TOKEN_FIELDS}
+      }
+      linkTicket
+      provider
+    }
+  }
+`;
+
+export const AGREE_TERMS: TypedDocumentNode<
+  { agreeTerms: { id: string; termsAgreedAt: string | null; termsVersion: string | null } },
+  Record<string, never>
+> = gql`
+  mutation AgreeTerms {
+    agreeTerms {
+      id
+      termsAgreedAt
+      termsVersion
+    }
+  }
+`;
