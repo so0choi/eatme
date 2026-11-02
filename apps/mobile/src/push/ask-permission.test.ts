@@ -71,6 +71,9 @@ describe('maybeAskPushPermission', () => {
   });
 });
 
+// 첫 렌더는 react-native Modal 등을 처음 변환·로드해 느린 CI(콜드 캐시)에서 5초를 넘길 수 있다.
+const RENDER_TIMEOUT_MS = 30_000;
+
 describe('PushPromptHost 시작 시 토큰 재등록', () => {
   const mockedUseAuth = useAuth as jest.Mock;
 
@@ -85,13 +88,15 @@ describe('PushPromptHost 시작 시 토큰 재등록', () => {
     ['로그인했지만 약관 미동의', { status: 'signedIn', profile: { termsAgreedAt: null } }],
   ])('%s 상태면 등록하지 않는다', async (_, auth) => {
     mockedUseAuth.mockReturnValue(auth);
-    await render(createElement(PushPromptHost));
+    const screen = await render(createElement(PushPromptHost));
     expect(register).not.toHaveBeenCalled();
-  });
+    await screen.unmount();
+  }, RENDER_TIMEOUT_MS);
 
   it('로그인 + 약관 동의 상태면 권한 요청 없이 등록한다', async () => {
     mockedUseAuth.mockReturnValue({ status: 'signedIn', profile: { termsAgreedAt: '2026-11-03T00:00:00.000Z' } });
-    await render(createElement(PushPromptHost));
+    const screen = await render(createElement(PushPromptHost));
     expect(register).toHaveBeenCalledWith({ requestPermission: false });
-  });
+    await screen.unmount();
+  }, RENDER_TIMEOUT_MS);
 });
