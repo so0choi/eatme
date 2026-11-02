@@ -6,7 +6,7 @@ import { isAppleLoginAvailable, startAppleLogin } from '../../src/auth/apple-log
 import { useAuth } from '../../src/auth/auth-context';
 import { authErrorMessage } from '../../src/auth/auth-errors';
 import { loginWithEmail } from '../../src/auth/email-login';
-import { exchangeGoogleCode, startGoogleLogin } from '../../src/auth/google-login';
+import { exchangeGoogleCode, resetGoogleLogin, startGoogleLogin } from '../../src/auth/google-login';
 import { oauthErrorMessage } from '../../src/auth/oauth-redirect';
 import { ProfileRetryNotice } from '../../src/auth/profile-retry-notice';
 import { Button, Notice, Panel, Screen, ScreenHeader, TextField } from '../../src/ui';
@@ -31,6 +31,9 @@ export default function Login() {
       active = false;
     };
   }, []);
+
+  // 화면을 떠나면 진행 중이던 Google 로그인 verifier를 메모리에 남기지 않는다.
+  useEffect(() => resetGoogleLogin, []);
 
   const run = async (kind: Exclude<Busy, null>, task: () => Promise<void>, fallback: string) => {
     setBusy(kind);

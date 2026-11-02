@@ -32,6 +32,21 @@ describe('parseOAuthRedirect', () => {
     });
   });
 
+  it('앱 루트 반환 URL(Linking.createURL(\'\')) 아래의 link 딥링크도 연동 결과로 해석한다', () => {
+    // openAuthSessionAsync 반환 URL은 앱 루트라 auth/callback과 link가 모두 세션을 닫는다.
+    for (const root of ['eatme://', 'exp://192.168.0.2:8081/--/']) {
+      expect(parseOAuthRedirect(`${root}link?ticket=tk&provider=google`)).toEqual({
+        kind: 'link',
+        ticket: 'tk',
+        provider: 'google',
+      });
+      expect(parseOAuthRedirect(`${root}auth/callback?code=c`)).toEqual({ kind: 'code', code: 'c' });
+      // 루트 접두사가 같아도 로그인 딥링크가 아닌 경로는 거부한다.
+      expect(parseOAuthRedirect(`${root}`)).toBeNull();
+      expect(parseOAuthRedirect(`${root}fridge?ticket=tk`)).toBeNull();
+    }
+  });
+
   it('필수 파라미터가 없으면 일반 오류', () => {
     expect(parseOAuthRedirect('eatme://auth/callback')).toEqual({ kind: 'error', error: 'oauth' });
     expect(parseOAuthRedirect('eatme://link?provider=google')).toEqual({ kind: 'error', error: 'oauth' });

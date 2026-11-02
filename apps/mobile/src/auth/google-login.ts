@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { API_BASE_URL, apolloClient } from '../api/client';
 import { EXCHANGE_OAUTH_CODE } from '../api/documents';
 import { type OAuthRedirect, parseOAuthRedirect } from './oauth-redirect';
@@ -27,8 +28,10 @@ export async function startGoogleLogin(): Promise<GoogleLoginResult> {
   const challenge = await createCodeChallenge(verifier, sha256Base64);
   pendingVerifier = verifier;
 
-  const url = `${API_BASE_URL}/auth/google?client=mobile&code_challenge=${challenge}`;
-  const result = await WebBrowser.openAuthSessionAsync(url, Linking.createURL('auth/callback'));
+  const url = `${API_BASE_URL}/auth/google?client=mobile&code_challenge=${challenge}&platform=${Platform.OS}`;
+  // 반환 URL은 앱 루트(`eatme://`, Expo Go는 `exp://host:port`). 서버는 `…auth/callback?…` 또는
+  // 연동 필요 시 `…link?…`로 보내므로 둘 다 세션을 닫도록 접두사만 맞춘다(경로 검증은 parseOAuthRedirect).
+  const result = await WebBrowser.openAuthSessionAsync(url, Linking.createURL(''));
   if (result.type !== 'success') return { kind: 'cancelled' };
   return parseOAuthRedirect(result.url) ?? { kind: 'error', error: 'oauth' };
 }
@@ -37,15 +40,25 @@ export async function startGoogleLogin(): Promise<GoogleLoginResult> {
 export function exchangeGoogleCode(code: string): Promise<LoginToken> {
   if (inflightExchange?.code === code) return inflightExchange.promise;
   const codeVerifier = pendingVerifier;
-  const promise = (async () => {
+  const exchange = (async () => {
     const { data } = await apolloClient.mutate({
       mutation: EXCHANGE_OAUTH_CODE,
       variables: { code, codeVerifier },
     });
     if (!data) throw new Error('exchangeOAuthCode 응답이 비어 있습니다.');
-    pendingVerifier = null;
     return data.exchangeOAuthCode;
   })();
+  // code는 일회용이라 성공·실패와 무관하게 교환이 끝나면 verifier와 진행 상태를 버린다.
+  const promise = exchange.finally(() => {
+    if (pendingVerifier === codeVerifier) pendingVerifier = null;
+    if (inflightExchange?.promise === promise) inflightExchange = null;
+  });
   inflightExchange = { code, promise };
   return promise;
+}
+
+/** 로그인 화면을 떠날 때 진행 중이던 Google 로그인 상태(verifier·교환 공유)를 버린다. */
+export function resetGoogleLogin(): void {
+  pendingVerifier = null;
+  inflightExchange = null;
 }
