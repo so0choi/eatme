@@ -1,4 +1,4 @@
-import { daysLeft } from '@eatme/core';
+import { daysLeft, UNIT_LABEL } from '@eatme/core';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -23,7 +23,7 @@ export function expiryLabel(expireAt: string | null): { text: string; urgent: bo
 export function IngredientRow({ item, onPress, onUse, onDiscard }: Props) {
   const ref = useRef<SwipeableMethods>(null);
   const { text, urgent } = expiryLabel(item.expireAt);
-  const amount = item.quantity != null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}` : null;
+  const amount = item.quantity != null ? `${item.quantity}${item.unit ? UNIT_LABEL[item.unit] : ''}` : null;
 
   return (
     <ReanimatedSwipeable

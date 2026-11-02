@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useAuth } from '../src/auth/auth-context';
-import { Button, Screen } from '../src/ui';
+import { Button, Notice, Screen } from '../src/ui';
 
 const SLIDES = [
   { title: '한 줄로 빠르게 넣어요', body: '"감자 500g 3천원"처럼 적기만 하면 이름·수량·가격을 알아서 나눠 담아요.' },
@@ -15,14 +15,18 @@ export default function Onboarding() {
   const { markOnboarded } = useAuth();
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const last = index === SLIDES.length - 1;
   const slide = SLIDES[index];
 
   const finish = async () => {
     setFinishing(true);
+    setError(null);
     try {
       await markOnboarded();
       router.replace('/(tabs)');
+    } catch {
+      setError('저장하지 못했어요. 다시 시도해 주세요.');
     } finally {
       setFinishing(false);
     }
@@ -38,6 +42,7 @@ export default function Onboarding() {
         <Text className="text-base leading-6 text-on-surface-variant">{slide.body}</Text>
       </View>
       <View className="gap-2">
+        {error ? <Notice message={error} /> : null}
         <Button
           label={last ? '시작하기' : '다음'}
           loading={finishing}

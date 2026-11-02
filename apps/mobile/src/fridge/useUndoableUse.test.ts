@@ -60,4 +60,70 @@ describe('useUndoableUse', () => {
     expect(result.current.pending).toBeNull();
     expect(result.current.error).toMatch(/실패/);
   });
+
+  it('USED 요청이 끝나기 전에 취소해도 USED가 먼저, 복원이 나중에 전송된다', async () => {
+    const calls: string[] = [];
+    let resolveUsed: () => void = () => {};
+    const setStatus = jest.fn((_id: number, status: IngredientStatus) => {
+      calls.push(status);
+      if (status === 'USED') return new Promise<void>((r) => (resolveUsed = r));
+      return Promise.resolve();
+    });
+    const { result } = await renderHook(() => useUndoableUse(setStatus));
+    let usePromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      usePromise = result.current.use(milk);
+    });
+    let undoPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      undoPromise = result.current.undo();
+    });
+    expect(calls).toEqual(['USED']);
+    await act(async () => {
+      resolveUsed();
+      await usePromise;
+      await undoPromise;
+    });
+    expect(calls).toEqual(['USED', 'EXPIRING_SOON']);
+    expect(result.current.hiddenIds.has(1)).toBe(false);
+  });
+
+  it('USED가 실패했다면 취소해도 복원 요청을 보내지 않는다', async () => {
+    let rejectUsed: (e: Error) => void = () => {};
+    const setStatus = jest.fn(() => new Promise<void>((_, rej) => (rejectUsed = rej)));
+    const { result } = await renderHook(() => useUndoableUse(setStatus));
+    let usePromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      usePromise = result.current.use(milk);
+    });
+    let undoPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      undoPromise = result.current.undo();
+    });
+    await act(async () => {
+      rejectUsed(new Error('x'));
+      await usePromise;
+      await undoPromise;
+    });
+    expect(setStatus).toHaveBeenCalledTimes(1);
+    expect(result.current.hiddenIds.has(1)).toBe(false);
+  });
+
+  it('다른 재료를 이어서 사용하면 앞 항목은 확정되고 토스트는 새 항목을 가리킨다', async () => {
+    const setStatus = jest.fn().mockResolvedValue(undefined);
+    const { result } = await renderHook(() => useUndoableUse(setStatus));
+    await act(async () => {
+      await result.current.use(milk);
+    });
+    await act(async () => {
+      await result.current.use({ id: 2, name: '두부', status: 'FRESH' });
+    });
+    expect(result.current.pending?.id).toBe(2);
+    await act(async () => {
+      await result.current.undo();
+    });
+    expect(setStatus).toHaveBeenLastCalledWith(2, 'FRESH');
+    expect(result.current.hiddenIds.has(1)).toBe(true);
+    expect(result.current.hiddenIds.has(2)).toBe(false);
+  });
 });

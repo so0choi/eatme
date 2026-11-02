@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@apollo/client/react';
 import { storageLabels } from '@eatme/core';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import {
   DELETE_INGREDIENT,
@@ -80,8 +80,11 @@ export default function IngredientEdit() {
   const [error, setError] = useState<string | null>(null);
 
   const ingredient = data?.ingredient;
+  // 저장 후 refetch로 ingredient가 갱신돼도 편집 중인 입력을 덮어쓰지 않도록 id당 한 번만 채운다.
+  const initializedId = useRef<number | null>(null);
   useEffect(() => {
-    if (!ingredient) return;
+    if (!ingredient || initializedId.current === ingredient.id) return;
+    initializedId.current = ingredient.id;
     setName(ingredient.name);
     setQuantity(ingredient.quantity != null ? String(ingredient.quantity) : '');
     setPrice(ingredient.price != null ? String(ingredient.price) : '');
@@ -97,7 +100,8 @@ export default function IngredientEdit() {
     if (!name.trim()) return setError('이름을 입력해 주세요.');
     if (qty != null && (!Number.isFinite(qty) || qty < 0)) return setError('수량을 숫자로 입력해 주세요.');
     if (won != null && (!Number.isInteger(won) || won < 0)) return setError('가격을 원 단위 숫자로 입력해 주세요.');
-    if (expireAt.trim() !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(expireAt.trim())) {
+    const dateText = expireAt.trim();
+    if (dateText !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || Number.isNaN(new Date(`${dateText}T00:00:00+09:00`).getTime()))) {
       return setError('유통기한은 2026-11-03 형식으로 입력해 주세요.');
     }
     setError(null);
@@ -112,7 +116,7 @@ export default function IngredientEdit() {
             unit,
             storage,
             category,
-            expireAt: expireAt.trim() === '' ? null : fromKstDate(expireAt.trim()),
+            expireAt: dateText === '' ? null : fromKstDate(dateText),
           },
         },
       });

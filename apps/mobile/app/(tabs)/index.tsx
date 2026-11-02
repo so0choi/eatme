@@ -36,7 +36,9 @@ export default function FridgeScreen() {
     [data, hiddenIds],
   );
   const { expiringSoon, byStorage } = useMemo(() => groupIngredients(items), [items]);
-  const isEmpty = !loading && !error && items.every((i) => i.status === 'USED' || i.status === 'DISCARDED');
+  // 서버 데이터 기준: 방금 사용함 처리해 숨긴 재료가 있는 동안(실행취소 토스트)에는 첫 사용 안내를 띄우지 않는다.
+  const isEmpty =
+    !loading && !error && !!data && data.getAllIngredients.every((i) => i.status === 'USED' || i.status === 'DISCARDED') && !pending;
 
   const confirmDiscard = (item: Ingredient) =>
     Alert.alert('폐기할까요?', `${item.name}을(를) 폐기 처리해요. 되돌릴 수 없어요.`, [
